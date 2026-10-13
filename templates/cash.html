@@ -1,93 +1,287 @@
 {% extends "base.html" %}
 {% block title %}Каса{% endblock %}
 {% block content %}
-<div class="page-head">
+<div class="cash-page-head">
   <div>
     <h1 class="page-title">💳 Каса</h1>
-    <p class="muted">Оберіть товари, вкажіть отриману суму — решта порахується автоматично.</p>
+    <p class="muted">Знайдіть товар, додайте в чек і прийміть оплату.</p>
   </div>
+  <a class="btn btn-ghost" href="{{ url_for('reservations_view') }}">📌 Резерви</a>
 </div>
 
-<form method="post" action="{{ url_for('cash_view') }}" id="cash-form">
-  <div class="toolbar">
-    <input type="search" id="cash-search" class="search-input" placeholder="🔍 Пошук товару за назвою, брендом або розміром">
-  </div>
-  {% if items %}
-  <div class="table-wrap">
-    <table class="data-table cash-table">
-      <thead><tr><th></th><th>Категорія</th><th>Товар</th><th>Ціна</th><th>Доступно</th><th>Кількість</th></tr></thead>
-      <tbody>
+<form method="post" action="{{ url_for('cash_view') }}" id="cash-form" class="cash-layout">
+  <section class="cash-products">
+    <label class="cash-search-wrap">
+      <span aria-hidden="true">🔍</span>
+      <input type="search" id="cash-search" class="cash-search" placeholder="Введіть назву, бренд, розмір або в'язкість" autocomplete="off" autofocus>
+      <button type="button" id="cash-search-clear" class="cash-search-clear" aria-label="Очистити пошук" hidden>×</button>
+    </label>
+
+    <nav class="cash-categories" aria-label="Категорії товарів">
+      <button type="button" class="cash-category active" data-group="all">Усі товари</button>
+      <button type="button" class="cash-category" data-group="tires">🛞 Шини</button>
+      <button type="button" class="cash-category" data-group="batteries">🔋 Акумулятори</button>
+      <button type="button" class="cash-category" data-group="oils">🛢️ Мастила</button>
+    </nav>
+
+    {% if items %}
+    <div class="cash-results-label muted"><span id="cash-results-count">{{ items|length }}</span> товарів · натисніть, щоб додати в чек</div>
+    <div class="cash-product-grid" id="cash-product-grid">
       {% for row in items %}
         {% set item = row.item %}
-        <tr data-price="{{ item['price'] }}" data-available="{{ row.available }}">
-          <td><input type="checkbox" class="cash-check" name="sell_{{ item['id'] }}" {% if not row.available %}disabled{% endif %}></td>
-          <td>{{ CATEGORY_LABELS[item['category']] }}</td>
-          <td>{{ item_label(item['category'], item) }}</td>
-          <td class="nowrap">{{ "%.2f"|format(item['price']) }} ₴</td>
-          <td>{{ row.available }} шт.</td>
-          <td><input type="number" name="qty_{{ item['id'] }}" class="cash-qty" min="1" max="{{ row.available }}" value="1" disabled></td>
-        </tr>
+        {% set cat_type = CATEGORY_TYPE[item['category']] %}
+        {% set group = 'tires' if cat_type == 'tire' else 'batteries' if cat_type == 'battery' else 'oils' %}
+        <article class="cash-product"
+          data-id="{{ item['id'] }}"
+          data-group="{{ group }}"
+          data-category="{{ CATEGORY_LABELS[item['category']] }}"
+          data-label="{{ item_label(item['category'], item) }}"
+          data-price="{{ item['price'] }}"
+          data-available="{{ row.available }}"
+          data-search="{{ CATEGORY_LABELS[item['category']] }} {{ item_label(item['category'], item) }} {{ item['brand'] }} {{ item['size'] }} {{ item['tread_model'] }} {{ item['season'] }} {{ item['load_index'] }} {{ item['speed_index'] }} {{ item['dot_code'] }} {{ item['transport_type'] }} {{ item['capacity_ah'] }} {{ item['cold_crank_amps'] }} {{ item['polarity'] }} {{ item['case_type'] }} {{ item['title'] }} {{ item['viscosity'] }} {{ item['base_type'] }} {{ item['volume'] }}">
+          <div class="cash-product-top">
+            <span class="cash-product-category">{{ CATEGORY_LABELS[item['category']] }}</span>
+            <span class="cash-product-stock {{ 'qty-low' if row.available <= 2 else '' }}">Залишок: {{ row.available }}</span>
+          </div>
+          <h2>{{ item_label(item['category'], item) }}</h2>
+          {% if cat_type == 'tire' %}
+            <div class="cash-product-spec">{{ item['season'] }}{% if item['load_index'] %} · {{ item['load_index'] }}{% if item['speed_index'] %}/{{ item['speed_index'] }}{% endif %}{% endif %}{% if item['dot_code'] %} · DOT {{ item['dot_code'] }}{% endif %}</div>
+          {% elif cat_type == 'battery' %}
+            <div class="cash-product-spec">{{ format_number(item['capacity_ah']) }} Ah · {{ format_number(item['cold_crank_amps']) }} A{% if item['polarity'] %} · {{ item['polarity'] }}{% endif %}</div>
+          {% else %}
+            <div class="cash-product-spec">{{ item['base_type'] }}{% if item['base_type'] and item['volume'] %} · {% endif %}{{ item['volume'] }}</div>
+          {% endif %}
+          <div class="cash-product-bottom">
+            <strong>{{ "%.2f"|format(item['price']) }} ₴</strong>
+            <button type="button" class="btn btn-add cash-add" {% if not row.available %}disabled{% endif %}>
+              {% if row.available %}+ Додати{% else %}Немає{% endif %}
+            </button>
+          </div>
+          <input type="checkbox" class="cash-check" name="sell_{{ item['id'] }}" hidden>
+          <input type="hidden" name="qty_{{ item['id'] }}" class="cash-qty" value="1">
+        </article>
       {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div class="cash-checkout panel">
-    <label>Клієнт (необов'язково)
-      <input type="text" name="customer" list="customer-list" class="customer-input">
+    </div>
+    <p class="muted cash-no-results" id="cash-no-results" hidden>Нічого не знайдено. Спробуйте змінити пошук або категорію.</p>
+    {% else %}
+      <div class="panel"><p class="muted">На складі поки немає товарів для продажу.</p></div>
+    {% endif %}
+  </section>
+
+  <aside class="cash-cart panel">
+    <div class="cash-cart-heading">
+      <h2>🧾 Чек</h2>
+      <button type="button" class="cash-clear-cart" id="cash-clear-cart">Очистити</button>
+    </div>
+    <div class="cash-cart-items" id="cash-cart-items">
+      <p class="muted cash-cart-empty" id="cash-cart-empty">Додайте товари — вони з'являться тут.</p>
+    </div>
+
+    <div class="cash-cart-summary">
+      <span>До сплати</span>
+      <strong id="cash-total">0,00 ₴</strong>
+    </div>
+    <label class="cash-customer-label">Клієнт <span class="muted">(необов'язково)</span>
+      <input type="text" name="customer" list="customer-list" class="cash-customer" placeholder="Ім'я клієнта">
     </label>
     <datalist id="customer-list">{% for name in customer_names %}<option value="{{ name }}">{% endfor %}</datalist>
-    <div class="cash-totals">
-      <div>До сплати: <strong id="cash-total">0.00 ₴</strong></div>
-      <label>Отримано, ₴
-        <input type="number" name="received" id="cash-received" min="0" step="0.01" required>
-      </label>
-      <div>Решта: <strong id="cash-change">—</strong></div>
+    <label class="cash-received-label">Отримано готівкою
+      <div class="cash-money-input"><input type="number" name="received" id="cash-received" min="0" step="0.01" placeholder="0,00" required><span>₴</span></div>
+    </label>
+    <div class="cash-quick-amounts" aria-label="Швидкі суми отриманої готівки">
+      <button type="button" data-tender="exact" disabled>Рівно</button>
+      <button type="button" data-tender="round10" disabled>До 10</button>
+      <button type="button" data-tender="round50" disabled>До 50</button>
+      <button type="button" data-tender="round100" disabled>До 100</button>
     </div>
-    <button type="submit" class="btn btn-sell">✅ Оформити продаж</button>
-  </div>
-  {% else %}
-  <p class="muted">На складі поки немає товарів для продажу.</p>
-  {% endif %}
+    <div class="cash-change-row"><span>Решта</span><strong id="cash-change">—</strong></div>
+    <button type="submit" class="btn btn-sell cash-submit" id="cash-submit" disabled>✅ Оплатити</button>
+  </aside>
 </form>
 
 <script>
 (function () {
-  var rows = Array.prototype.slice.call(document.querySelectorAll('.cash-table tbody tr'));
+  var form = document.getElementById('cash-form');
   var search = document.getElementById('cash-search');
-  var received = document.getElementById('cash-received');
+  var clearSearch = document.getElementById('cash-search-clear');
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.cash-product'));
+  var categoryButtons = Array.prototype.slice.call(document.querySelectorAll('.cash-category'));
+  var cart = document.getElementById('cash-cart-items');
+  var emptyCart = document.getElementById('cash-cart-empty');
   var totalEl = document.getElementById('cash-total');
+  var received = document.getElementById('cash-received');
   var changeEl = document.getElementById('cash-change');
-  if (!received || !totalEl || !changeEl) return;
+  var submit = document.getElementById('cash-submit');
+  var activeGroup = 'all';
+  var formatter = new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  function updateTotal() {
-    var total = 0;
-    rows.forEach(function (row) {
-      var checkbox = row.querySelector('.cash-check');
-      var quantity = row.querySelector('.cash-qty');
-      quantity.disabled = !checkbox.checked;
-      if (checkbox.checked) total += Number(row.dataset.price) * Number(quantity.value || 0);
+  if (!form || !received || !totalEl || !changeEl) return;
+
+  function selectedCards() {
+    return cards.filter(function (card) { return card.querySelector('.cash-check').checked; });
+  }
+
+  function updateProducts() {
+    if (!cards.length) return;
+    var query = search.value.trim().toLocaleLowerCase('uk-UA');
+    var visibleCount = 0;
+    cards.forEach(function (card) {
+      var matchesGroup = activeGroup === 'all' || card.dataset.group === activeGroup;
+      var matchesText = !query || card.dataset.search.toLocaleLowerCase('uk-UA').includes(query);
+      var visible = matchesGroup && matchesText;
+      card.hidden = !visible;
+      if (visible) visibleCount += 1;
     });
+    document.getElementById('cash-results-count').textContent = visibleCount;
+    document.getElementById('cash-no-results').hidden = visibleCount > 0;
+    clearSearch.hidden = !query;
+  }
+
+  function updateCart() {
+    var selected = selectedCards();
+    var total = selected.reduce(function (sum, card) {
+      return sum + Number(card.dataset.price) * Number(card.querySelector('.cash-qty').value || 1);
+    }, 0);
     total = Math.round(total * 100) / 100;
-    totalEl.textContent = total.toFixed(2) + ' ₴';
+    cart.querySelectorAll('.cash-cart-line').forEach(function (line) { line.remove(); });
+    emptyCart.hidden = selected.length > 0;
+
+    selected.forEach(function (card) {
+      var id = card.dataset.id;
+      var quantityInput = card.querySelector('.cash-qty');
+      var line = document.createElement('div');
+      line.className = 'cash-cart-line';
+      var info = document.createElement('div');
+      info.className = 'cash-cart-line-info';
+      var title = document.createElement('strong');
+      title.textContent = card.dataset.label;
+      var unitPrice = document.createElement('span');
+      unitPrice.className = 'muted';
+      unitPrice.textContent = formatter.format(Number(card.dataset.price)) + ' ₴ / шт.';
+      info.appendChild(title);
+      info.appendChild(unitPrice);
+
+      var controls = document.createElement('div');
+      controls.className = 'cash-quantity-controls';
+      var minus = document.createElement('button');
+      minus.type = 'button';
+      minus.textContent = '−';
+      minus.setAttribute('aria-label', 'Зменшити кількість');
+      minus.disabled = Number(quantityInput.value) <= 1;
+      minus.addEventListener('click', function () {
+        quantityInput.value = Math.max(1, Number(quantityInput.value) - 1);
+        updateCart();
+      });
+      var count = document.createElement('span');
+      count.textContent = quantityInput.value;
+      var plus = document.createElement('button');
+      plus.type = 'button';
+      plus.textContent = '+';
+      plus.setAttribute('aria-label', 'Збільшити кількість');
+      plus.disabled = Number(quantityInput.value) >= Number(card.dataset.available);
+      plus.addEventListener('click', function () {
+        quantityInput.value = Math.min(Number(card.dataset.available), Number(quantityInput.value) + 1);
+        updateCart();
+      });
+      controls.appendChild(minus);
+      controls.appendChild(count);
+      controls.appendChild(plus);
+
+      var lineTotal = document.createElement('strong');
+      lineTotal.className = 'cash-cart-line-total';
+      lineTotal.textContent = formatter.format(Number(card.dataset.price) * Number(quantityInput.value)) + ' ₴';
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'cash-cart-remove';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', 'Прибрати товар з чека');
+      remove.addEventListener('click', function () {
+        card.querySelector('.cash-check').checked = false;
+        quantityInput.value = 1;
+        updateCart();
+      });
+
+      line.appendChild(info);
+      line.appendChild(controls);
+      line.appendChild(lineTotal);
+      line.appendChild(remove);
+      cart.appendChild(line);
+    });
+
+    totalEl.textContent = formatter.format(total) + ' ₴';
+    submit.disabled = selected.length === 0 || received.value === '' || Number(received.value) < total;
+    document.querySelectorAll('[data-tender]').forEach(function (button) {
+      button.disabled = selected.length === 0;
+    });
     if (received.value === '') {
       changeEl.textContent = '—';
+      changeEl.classList.remove('qty-low');
     } else {
-      changeEl.textContent = (Number(received.value) - total).toFixed(2) + ' ₴';
-      changeEl.classList.toggle('qty-low', Number(received.value) < total);
+      var change = Number(received.value) - total;
+      changeEl.textContent = formatter.format(change) + ' ₴';
+      changeEl.classList.toggle('qty-low', change < 0);
     }
   }
 
-  rows.forEach(function (row) {
-    row.querySelector('.cash-check').addEventListener('change', updateTotal);
-    row.querySelector('.cash-qty').addEventListener('input', updateTotal);
-  });
-  received.addEventListener('input', updateTotal);
-  search.addEventListener('input', function () {
-    var q = search.value.trim().toLowerCase();
-    rows.forEach(function (row) {
-      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  cards.forEach(function (card) {
+    card.querySelector('.cash-add').addEventListener('click', function () {
+      var checkbox = card.querySelector('.cash-check');
+      if (!checkbox.checked) {
+        checkbox.checked = true;
+      } else {
+        var quantity = card.querySelector('.cash-qty');
+        quantity.value = Math.min(Number(card.dataset.available), Number(quantity.value) + 1);
+      }
+      updateCart();
     });
   });
+
+  categoryButtons.forEach(function (button) {
+    button.addEventListener('click', function () {
+      activeGroup = button.dataset.group;
+      categoryButtons.forEach(function (candidate) {
+        candidate.classList.toggle('active', candidate === button);
+      });
+      updateProducts();
+    });
+  });
+
+  search.addEventListener('input', updateProducts);
+  clearSearch.addEventListener('click', function () {
+    search.value = '';
+    updateProducts();
+    search.focus();
+  });
+  received.addEventListener('input', updateCart);
+  document.getElementById('cash-clear-cart').addEventListener('click', function () {
+    selectedCards().forEach(function (card) {
+      card.querySelector('.cash-check').checked = false;
+      card.querySelector('.cash-qty').value = 1;
+    });
+    received.value = '';
+    updateCart();
+  });
+  document.querySelectorAll('[data-tender]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var total = selectedCards().reduce(function (sum, card) {
+        return sum + Number(card.dataset.price) * Number(card.querySelector('.cash-qty').value || 1);
+      }, 0);
+      var step = { exact: 0.01, round10: 10, round50: 50, round100: 100 }[button.dataset.tender];
+      received.value = (button.dataset.tender === 'exact' ? total : Math.ceil(total / step) * step).toFixed(2);
+      updateCart();
+    });
+  });
+  form.addEventListener('submit', function (event) {
+    var total = selectedCards().reduce(function (sum, card) {
+      return sum + Number(card.dataset.price) * Number(card.querySelector('.cash-qty').value || 1);
+    }, 0);
+    if (!selectedCards().length || Number(received.value) < total) {
+      event.preventDefault();
+    }
+  });
+
+  updateProducts();
+  updateCart();
 })();
 </script>
 {% endblock %}
