@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Облік для магазину автотоварів{% endblock %}
+{% block public_content %}
+<div class="landing-page">
+  <header class="landing-nav">
+    <a class="landing-brand" href="{{ url_for('landing') }}">
+      <span class="landing-mark">🛞</span>
+      <span>АвтоЗапас<small>Простий облік магазину шин, акумуляторів і мастил</small></span>
+    </a>
+    <nav aria-label="Головна навігація">
+      <a href="#possibilities">Можливості</a>
+      <a href="#screenshots">Скріншоти</a>
+      <a href="{{ url_for('login') }}">Вхід</a>
+    </nav>
+    <a class="btn btn-ghost landing-nav-demo" href="{{ url_for('demo') }}">Спробувати демо →</a>
+  </header>
+
+  <main>
+    <section class="landing-hero">
+      <div class="landing-hero-copy">
+        <span class="landing-eyebrow"><span></span> Для невеликого магазину автотоварів</span>
+        <h1>Магазин під контролем.<br><span>Без зайвих таблиць.</span></h1>
+        <p>АвтоЗапас допомагає вести склад, обслуговувати клієнтів і швидше продавати шини, акумулятори та мастила — з одного простого робочого місця.</p>
+        <div class="landing-actions">
+          <a class="btn btn-add" href="{{ url_for('demo') }}">🧪 Відкрити тестову версію</a>
+          <a class="btn btn-ghost" href="#possibilities">Що вміє АвтоЗапас</a>
+        </div>
+        <div class="landing-trust"><span>✓</span> Тестова версія з прикладами · <span>✓</span> Без реєстрації · <span>✓</span> Безпечний режим лише для перегляду</div>
+      </div>
+      <div class="landing-hero-visual">
+        <div class="landing-visual-glow"></div>
+        <img src="{{ url_for('static', filename='screenshots/dashboard.png') }}" alt="Дашборд АвтоЗапасу: залишки, продажі та останні операції">
+        <div class="landing-float-card"><span>📦</span><span><strong>Склад і продажі</strong><small>В одному вікні</small></span><b>↗</b></div>
+      </div>
+    </section>
+
+    <section class="landing-benefits" aria-label="Переваги АвтоЗапасу">
+      <div><strong>🛞</strong><span>Шини та сезонність</span></div>
+      <div><strong>🔋</strong><span>Акумулятори за параметрами</span></div>
+      <div><strong>🛢️</strong><span>Мастила й витратні матеріали</span></div>
+      <div><strong>💳</strong><span>Зручна каса для продавця</span></div>
+    </section>
+
+    <section class="landing-section" id="possibilities">
+      <div class="landing-section-heading">
+        <span class="landing-eyebrow">Усе необхідне — під рукою</span>
+        <h2>Менше рутини.<br><span>Більше уваги покупцям.</span></h2>
+        <p>Замість розрізнених записів — зрозумілі інструменти для щоденної роботи магазину.</p>
+      </div>
+      <div class="landing-feature-grid">
+        <article class="landing-feature"><span>📦</span><h3>Зрозумілий склад</h3><p>Облік шин, акумуляторів і мастил із їхніми характеристиками. Швидкий пошук, залишки та імпорт товарів із CSV.</p></article>
+        <article class="landing-feature"><span>🧾</span><h3>Каса без зайвих кроків</h3><p>Знайдіть товар, додайте в чек, вкажіть отриману суму — каса сама порахує решту.</p></article>
+        <article class="landing-feature"><span>📌</span><h3>Резерви та клієнти</h3><p>Відкладіть товар для покупця, стежте за доступним залишком і зберігайте історію клієнтів.</p></article>
+        <article class="landing-feature"><span>📄</span><h3>Документи на продаж</h3><p>Друкуйте чеки й накладні. Налаштовуйте шаблони та реквізити магазину.</p></article>
+        <article class="landing-feature"><span>📈</span><h3>Звіти та контроль</h3><p>Переглядайте виручку, продажі за категоріями й продавцями за тиждень або місяць.</p></article>
+        <article class="landing-feature"><span>↩️</span><h3>Історія та скасування</h3><p>Скасуйте продаж із поверненням товару на склад — запис про дію залишиться в журналі.</p></article>
+        <article class="landing-feature"><span>🧮</span><h3>Калькулятор шин</h3><p>Порівнюйте розміри, різницю діаметра, вплив на кліренс і показання спідометра.</p></article>
+        <article class="landing-feature"><span>🔋</span><h3>Підбір акумулятора</h3><p>Шукайте за мінімальною ємністю та пусковим струмом, типом техніки, полярністю й корпусом.</p></article>
+      </div>
+    </section>
+
+    <section class="landing-screenshots" id="screenshots">
+      <div class="landing-section-heading">
+        <span class="landing-eyebrow">Інтерфейс без сюрпризів</span>
+        <h2>Подивіться, як це <span>працює.</span></h2>
+        <p>Зображення показують демонстраційний інтерфейс із вигаданими прикладами товарів і продажів.</p>
+      </div>
+      <div class="landing-shot-grid">
+        <figure class="landing-shot landing-shot-wide">
+          <a href="{{ url_for('static', filename='screenshots/dashboard.png') }}" target="_blank" rel="noopener noreferrer">
+            <img src="{{ url_for('static', filename='screenshots/dashboard.png') }}" alt="Скріншот дашборда: підсумки магазину, низькі залишки й останні продажі">
+          </a>
+          <figcaption><span>01</span><div><strong>Дашборд магазину</strong><small>Залишки та остання активність</small></div></figcaption>
+        </figure>
+        <figure class="landing-shot">
+          <a href="{{ url_for('static', filename='screenshots/cash.png') }}" target="_blank" rel="noopener noreferrer">
+            <img src="{{ url_for('static', filename='screenshots/cash.png') }}" alt="Скріншот каси з товарами, кошиком і розрахунком решти">
+          </a>
+          <figcaption><span>02</span><div><strong>Каса продавця</strong><small>Пошук, чек і решта</small></div></figcaption>
+        </figure>
+        <figure class="landing-shot">
+          <a href="{{ url_for('static', filename='screenshots/battery.png') }}" target="_blank" rel="noopener noreferrer">
+            <img src="{{ url_for('static', filename='screenshots/battery.png') }}" alt="Скріншот підбору акумуляторів за параметрами">
+          </a>
+          <figcaption><span>03</span><div><strong>Підбір акумулятора</strong><small>Параметри й товари в наявності</small></div></figcaption>
+        </figure>
+      </div>
+      <a class="landing-inline-link" href="{{ url_for('demo') }}">Перейти до інтерактивного демо <span>→</span></a>
+    </section>
+
+    <section class="landing-cta">
+      <div><span class="landing-eyebrow">Переконайтеся самі</span><h2>Спробуйте АвтоЗапас<br>у роботі — це безкоштовно.</h2><p>Демо відкривається одразу, без реєстрації. Дані вигадані, а зміни не зберігаються.</p></div>
+      <a class="btn btn-add" href="{{ url_for('demo') }}">Відкрити тестову версію →</a>
+    </section>
+
+    <section class="landing-donation">
+      <div class="landing-donation-icon">💛</div>
+      <div><span class="landing-eyebrow">Незалежний проєкт</span><h2>Допоможіть розвивати АвтоЗапас</h2><p>Якщо сервіс став вам у пригоді, підтримайте його створення добровільним донатом. Доступ до програми не залежить від підтримки.</p></div>
+      <a class="btn btn-donate" href="{{ donation_url }}" target="_blank" rel="noopener noreferrer">Підтримати проєкт донатом ↗</a>
+    </section>
+  </main>
+
+  <footer class="landing-footer">
+    <a class="landing-brand" href="{{ url_for('landing') }}"><span class="landing-mark">🛞</span><span>АвтоЗапас<small>Простий облік магазину шин, акумуляторів і мастил</small></span></a>
+    <span>Простий інструмент для малого бізнесу в автотоварах.</span>
+    <div><a href="{{ url_for('login') }}">Вхід</a><a href="{{ url_for('demo') }}">Демо</a><a href="{{ donation_url }}" target="_blank" rel="noopener noreferrer">Донат 💛</a></div>
+  </footer>
+</div>
+{% endblock %}

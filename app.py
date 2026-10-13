@@ -64,8 +64,12 @@ IMPORT_COLUMNS = {
 
 app = Flask(__name__)
 app.config["DB_PATH"] = os.environ.get("STOCK_DB_PATH", dbmod.DEFAULT_DB_PATH)
+app.config["DEMO_DB_PATH"] = os.environ.get(
+    "DEMO_DB_PATH",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "demo.db"),
+)
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2 MB - достатньо для маленької іконки бренду
-app.config["DONATION_URL"] = os.environ.get("DONATION_URL", "").strip()
+app.config["DONATION_URL"] = os.environ.get("DONATION_URL", "").strip() or "https://www.privat24.ua/send/k4gxk"
 dbmod.register(app)
 
 BRAND_ICON_DIR = os.path.join(app.static_folder, "brand_icons")
@@ -98,6 +102,86 @@ def _get_or_create_secret_key():
 
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or _get_or_create_secret_key()
 
+
+def _initialize_demo_database():
+    main_db_path = app.config["DB_PATH"]
+    demo_db_path = app.config["DEMO_DB_PATH"]
+    if os.path.realpath(main_db_path) == os.path.realpath(demo_db_path):
+        raise RuntimeError("DEMO_DB_PATH must be different from STOCK_DB_PATH.")
+
+    os.makedirs(os.path.dirname(os.path.abspath(demo_db_path)), exist_ok=True)
+    try:
+        app.config["DB_PATH"] = demo_db_path
+        dbmod.init_db(app)
+        with app.app_context():
+            database = dbmod.get_db()
+            if database.execute("SELECT COUNT(*) FROM stock_items").fetchone()[0] == 0:
+                demo_columns = (
+                    "category", "brand", "tread_model", "size", "season", "load_index", "speed_index",
+                    "dot_code", "transport_type", "capacity_ah", "cold_crank_amps", "polarity", "case_type",
+                    "title", "viscosity", "base_type", "volume", "color_tag", "cost_price", "price", "quantity",
+                )
+                demo_defaults = dict.fromkeys(demo_columns, "")
+                demo_defaults.update({"capacity_ah": 0, "cold_crank_amps": 0, "cost_price": 0, "price": 0, "quantity": 0})
+                demo_items = [
+                    {"category": "car", "brand": "Michelin", "tread_model": "Primacy 4", "size": "205/55 R16", "season": "Літо", "load_index": "91", "speed_index": "V", "cost_price": 2600, "price": 3590, "quantity": 6},
+                    {"category": "car", "brand": "Continental", "tread_model": "WinterContact TS 870", "size": "195/65 R15", "season": "Зима", "load_index": "91", "speed_index": "T", "cost_price": 2450, "price": 3390, "quantity": 5},
+                    {"category": "car", "brand": "Hankook", "tread_model": "Ventus Prime 4", "size": "225/45 R17", "season": "Літо", "load_index": "94", "speed_index": "W", "cost_price": 2800, "price": 3890, "quantity": 2},
+                    {"category": "car", "brand": "Nokian", "tread_model": "Snowproof 2", "size": "215/60 R16", "season": "Зима", "load_index": "99", "speed_index": "H", "cost_price": 3100, "price": 4290, "quantity": 6},
+                    {"category": "battery_car", "brand": "Varta", "tread_model": "Blue Dynamic", "transport_type": "Легковий", "capacity_ah": 60, "cold_crank_amps": 600, "polarity": "Пряма (R+/1)", "case_type": "Європейський (клеми втоплені)", "cost_price": 2800, "price": 3890, "quantity": 4},
+                    {"category": "battery_car", "brand": "Bosch", "tread_model": "S4", "transport_type": "Легковий", "capacity_ah": 74, "cold_crank_amps": 680, "polarity": "Зворотна (L+/0)", "case_type": "Європейський (клеми втоплені)", "cost_price": 3400, "price": 4590, "quantity": 3},
+                    {"category": "oil_car", "brand": "Castrol", "title": "EDGE 5W-30", "viscosity": "5W-30", "base_type": "Синтетична", "volume": "4 л", "cost_price": 1450, "price": 1990, "quantity": 6},
+                    {"category": "oil_car", "brand": "Motul", "title": "8100 X-clean 5W-40", "viscosity": "5W-40", "base_type": "Синтетична", "volume": "5 л", "cost_price": 1900, "price": 2590, "quantity": 4},
+                ]
+                database.executemany(
+                    f"INSERT INTO stock_items ({', '.join(demo_columns)}) "
+                    f"VALUES ({', '.join('?' for _ in demo_columns)})",
+                    [tuple({**demo_defaults, **item}[column] for column in demo_columns) for item in demo_items],
+                )
+                database.executemany(
+                    "INSERT INTO thresholds (category, min_qty) VALUES (?, 3) "
+                    "ON CONFLICT(category) DO UPDATE SET min_qty = excluded.min_qty",
+                    [(category,) for category in ALL_CATEGORIES],
+                )
+                battery = database.execute(
+                    "SELECT id FROM stock_items WHERE brand = 'Bosch' AND category = 'battery_car'"
+                ).fetchone()
+                database.execute(
+                    "INSERT INTO reservations (item_id, category, quantity, customer, notes, status, created_at, created_by) "
+                    "VALUES (?, 'battery_car', 1, 'Клієнт демо', 'Приклад активного резерву', 'active', ?, 'Демо')",
+                    (battery["id"], dbmod.now_str()),
+                )
+                customer_id = database.execute(
+                    "INSERT INTO customers (name, phone, notes, created_at) VALUES (?, ?, ?, ?)",
+                    ("Тестовий клієнт", "", "Демо-профіль для перегляду CRM", dbmod.now_str()),
+                ).lastrowid
+                database.execute(
+                    "INSERT INTO history (category, operation, datetime, brand, tread_model, size, season, "
+                    "load_index, speed_index, cost_price, price, quantity, customer, customer_id, sale_id, username) "
+                    "VALUES ('car', 'Продаж', ?, 'Michelin', 'Primacy 4', '205/55 R16', 'Літо', '91', 'V', "
+                    "2600, 3590, 2, 'Тестовий клієнт', ?, 'DEMO-SALE-1', 'Демо-продавець')",
+                    (dbmod.now_str(), customer_id),
+                )
+                database.execute(
+                    "INSERT INTO sales (sale_id, received, change_amount) VALUES ('DEMO-SALE-1', 7200, 20)"
+                )
+                database.execute(
+                    "INSERT INTO history (category, operation, datetime, brand, title, viscosity, base_type, "
+                    "volume, cost_price, price, quantity, customer, customer_id, sale_id, username) "
+                    "VALUES ('oil_car', 'Продаж', ?, 'Castrol', 'EDGE 5W-30', '5W-30', 'Синтетична', "
+                    "'4 л', 1450, 1990, 1, 'Тестовий клієнт', ?, 'DEMO-SALE-2', 'Демо-продавець')",
+                    (dbmod.now_str(), customer_id),
+                )
+                database.execute(
+                    "INSERT INTO sales (sale_id, received, change_amount) VALUES ('DEMO-SALE-2', 2000, 10)"
+                )
+                database.commit()
+    finally:
+        app.config["DB_PATH"] = main_db_path
+
+
+_initialize_demo_database()
+
 TIRE_KEY_FIELDS = ("brand", "size", "season", "dot_code", "tread_model", "load_index", "speed_index")
 BATTERY_KEY_FIELDS = ("brand", "transport_type", "capacity_ah", "cold_crank_amps", "polarity", "case_type")
 OIL_KEY_FIELDS = ("brand", "title", "viscosity", "base_type", "volume")
@@ -124,6 +208,13 @@ def login_required(view):
     return wrapped
 
 
+@app.before_request
+def keep_demo_read_only():
+    if session.get("demo_mode") and request.method not in ("GET", "HEAD", "OPTIONS"):
+        flash("Це демонстраційна версія — зміни не зберігаються.", "error")
+        return redirect(url_for("dashboard"))
+
+
 def role_required(*roles):
     def decorator(view):
         @wraps(view)
@@ -136,6 +227,36 @@ def role_required(*roles):
             return view(*args, **kwargs)
         return wrapped
     return decorator
+
+
+@app.route("/")
+def landing():
+    if session.get("authed"):
+        return redirect(url_for("dashboard"))
+    return render_template("landing.html", donation_url=app.config["DONATION_URL"])
+
+
+@app.route("/demo")
+def demo():
+    session.clear()
+    session.update(
+        authed=True,
+        demo_mode=True,
+        user_id=0,
+        username="Демо-магазин",
+        role="seller",
+    )
+    demo_pages = {
+        "dashboard": url_for("dashboard"),
+        "cash": url_for("cash_view"),
+        "battery": url_for(
+            "battery_calculator_view",
+            search=1,
+            capacity_ah=60,
+            cold_crank_amps=600,
+        ),
+    }
+    return redirect(demo_pages.get(request.args.get("page", "dashboard"), demo_pages["dashboard"]))
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -163,7 +284,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return redirect(url_for("landing"))
 
 
 # ------------------------------------------------------------------
@@ -309,7 +430,7 @@ def search_view():
 #                          Дашборд
 # ------------------------------------------------------------------
 
-@app.route("/")
+@app.route("/dashboard")
 @login_required
 def dashboard():
     db = dbmod.get_db()

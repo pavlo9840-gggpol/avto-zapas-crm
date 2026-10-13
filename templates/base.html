@@ -87,6 +87,9 @@
     </div>
   </aside>
   <main class="content">
+    {% if session.get('demo_mode') %}
+      <div class="demo-banner"><span>🧪 Демо-режим: приклади товарів, зміни не зберігаються.</span><a href="{{ url_for('logout') }}">Завершити демо</a></div>
+    {% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-wrap">
@@ -114,7 +117,11 @@
 })();
 </script>
 {% else %}
-  {% block auth_content %}{% endblock %}
+  {% if request.endpoint == 'landing' %}
+    {% block public_content %}{% endblock %}
+  {% else %}
+    {% block auth_content %}{% endblock %}
+  {% endif %}
 {% endif %}
 </body>
 </html>

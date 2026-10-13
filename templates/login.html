@@ -17,6 +17,8 @@
     <input type="text" name="username" placeholder="Логін" autofocus required autocomplete="username">
     <input type="password" name="password" placeholder="Пароль" required autocomplete="current-password">
     <button type="submit">Увійти</button>
+    <a class="btn btn-ghost login-demo-link" href="{{ url_for('demo') }}">🧪 Подивитися демоверсію</a>
+    <a class="login-product-link" href="{{ url_for('landing') }}">← Про продукт</a>
     {% if donation_url %}
     <p class="muted" style="margin:16px 0 4px;">Користуєтесь АвтоЗапасом? Підтримайте розвиток проєкту.</p>
     <a class="btn btn-ghost" href="{{ donation_url }}" target="_blank" rel="noopener noreferrer">💛 Підтримати проєкт донатом</a>

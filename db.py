@@ -9,8 +9,9 @@ db.py
 import os
 import sqlite3
 from datetime import datetime
+from pathlib import Path
 
-from flask import current_app, g
+from flask import current_app, g, has_request_context, session
 from werkzeug.security import generate_password_hash
 
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stock.db")
@@ -19,10 +20,21 @@ DEFAULT_PASSWORD = "admin123"  # ОБОВ'ЯЗКОВО поміняти післ
 
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(
-            current_app.config["DB_PATH"],
-            detect_types=sqlite3.PARSE_DECLTYPES,
-        )
+        demo_mode = has_request_context() and session.get("demo_mode")
+        database_path = current_app.config["DEMO_DB_PATH"] if demo_mode else current_app.config["DB_PATH"]
+        if demo_mode:
+            database_uri = f"{Path(database_path).resolve().as_uri()}?mode=ro"
+            g.db = sqlite3.connect(
+                database_uri,
+                uri=True,
+                detect_types=sqlite3.PARSE_DECLTYPES,
+            )
+            g.db.execute("PRAGMA query_only = ON")
+        else:
+            g.db = sqlite3.connect(
+                database_path,
+                detect_types=sqlite3.PARSE_DECLTYPES,
+            )
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON")
     return g.db
