@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Історія · {{ CATEGORY_LABELS[category] }}{% endblock %}
+{% block content %}
+{% set cat_type = CATEGORY_TYPE[category] %}
+<div class="page-head">
+  <h1 class="page-title">Історія · {{ CATEGORY_LABELS[category] }}</h1>
+  <div class="page-actions">
+    <a class="btn btn-ghost" href="{{ url_for('export_history_csv', category=category) }}">⬇️ Експорт CSV</a>
+    <a class="btn btn-ghost" href="{{ url_for('stock_list', category=category) }}">← До складу</a>
+  </div>
+</div>
+
+<div class="toolbar">
+  <input type="text" id="search-box" class="search-input" placeholder="🔍  Пошук по історії...">
+</div>
+
+{% if not rows %}
+  <p class="muted">Історія операцій порожня.</p>
+{% else %}
+<div class="table-wrap">
+<table class="data-table" id="history-table">
+  <thead>
+    <tr>
+      <th class="sortable" data-sort="text">Коли</th><th class="sortable" data-sort="text">Дія</th><th class="sortable" data-sort="text">Хто</th><th class="sortable" data-sort="text">Бренд</th>
+      {% if cat_type == 'tire' %}<th class="sortable" data-sort="text">Розмір</th><th class="sortable" data-sort="text">Сезон</th><th>DOT</th>{% endif %}
+      {% if cat_type == 'battery' %}<th class="sortable" data-sort="text">Тип</th><th>Параметри</th>{% endif %}
+      {% if cat_type == 'oil' %}<th class="sortable" data-sort="text">В'язкість</th><th>Обʼєм</th>{% endif %}
+      {% if session.get('role') == 'admin' %}<th class="sortable" data-sort="number">Собівартість</th><th class="sortable" data-sort="number">Прибуток</th>{% endif %}
+      <th class="sortable" data-sort="number">К-сть</th><th class="sortable" data-sort="number">Ціна</th>
+      <th class="sortable" data-sort="text">Клієнт</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td class="muted nowrap">{{ r['datetime'] }}</td>
+      <td>{{ r['operation'] }}</td>
+      <td class="muted">{{ r['username'] }}</td>
+      <td>{{ r['brand'] }}</td>
+      {% if cat_type == 'tire' %}
+        <td>{{ r['size'] }}</td><td>{{ r['season'] }}</td><td>{{ r['dot_code'] }}</td>
+      {% endif %}
+      {% if cat_type == 'battery' %}
+        <td>{{ r['transport_type'] }}</td><td>{{ format_number(r['capacity_ah']) }} Ah / {{ format_number(r['cold_crank_amps']) }} A</td>
+      {% endif %}
+      {% if cat_type == 'oil' %}
+        <td>{{ r['viscosity'] }}</td><td>{{ r['volume'] }}</td>
+      {% endif %}
+      {% if session.get('role') == 'admin' %}
+        <td class="nowrap">{{ "%.0f"|format(r['cost_price']) }} ₴</td>
+        {% set profit = (r['price'] - r['cost_price']) * r['quantity'] if r['operation'] == 'Продаж' else 0 %}
+        <td class="nowrap {{ 'margin-neg' if profit < 0 else '' }}">{{ "%.0f"|format(profit) if r['operation'] == 'Продаж' else '—' }}{{ ' ₴' if r['operation'] == 'Продаж' else '' }}</td>
+      {% endif %}
+      <td>{{ r['quantity'] }}</td>
+      <td class="nowrap">{{ "%.0f"|format(r['price']) }} ₴</td>
+      <td>
+        {% if r['customer_id'] %}<a href="{{ url_for('customer_detail', customer_id=r['customer_id']) }}">{{ r['customer'] }}</a>
+        {% else %}{{ r['customer'] }}{% endif %}
+      </td>
+      <td class="col-actions">
+        {% if r['sale_id'] %}<a href="{{ url_for('receipt_view', sale_id=r['sale_id']) }}" title="Переглянути чек">🧾</a>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+<script>
+document.getElementById('search-box')?.addEventListener('input', function () {
+  var q = this.value.trim().toLowerCase();
+  document.querySelectorAll('#history-table tbody tr').forEach(function (row) {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+
+(function () {
+  var table = document.getElementById('history-table');
+  if (!table) return;
+  var headers = table.querySelectorAll('th.sortable');
+  headers.forEach(function (th) {
+    th.addEventListener('click', function () {
+      var index = Array.prototype.indexOf.call(th.parentNode.children, th);
+      var type = th.dataset.sort;
+      var asc = th.dataset.order !== 'asc';
+      headers.forEach(function (h) { h.removeAttribute('data-order'); h.classList.remove('sort-asc', 'sort-desc'); });
+      th.dataset.order = asc ? 'asc' : 'desc';
+      th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+      var tbody = table.querySelector('tbody');
+      var rowsArr = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+      rowsArr.sort(function (a, b) {
+        var av = a.children[index] ? a.children[index].textContent.trim() : '';
+        var bv = b.children[index] ? b.children[index].textContent.trim() : '';
+        if (type === 'number') {
+          var an = parseFloat(av.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+          var bn = parseFloat(bv.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+          return asc ? an - bn : bn - an;
+        }
+        return asc ? av.localeCompare(bv, 'uk') : bv.localeCompare(av, 'uk');
+      });
+      rowsArr.forEach(function (row) { tbody.appendChild(row); });
+    });
+  });
+})();
+</script>
+{% endblock %}

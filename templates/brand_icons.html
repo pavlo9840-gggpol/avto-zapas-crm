@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Іконки брендів{% endblock %}
+{% block content %}
+<h1 class="page-title">🏷️ Іконки брендів</h1>
+<p class="muted brand-icons-hint">
+  Завантажте невеличкий файл PNG або ICO (ідеально — квадратний, 32×32 чи 64×64 px) —
+  він з'явиться поруч з назвою бренду в таблиці складу. Якщо файлу під рукою немає,
+  можна просто ввести емодзі замість нього.
+</p>
+
+<div class="toolbar">
+  <input type="text" id="search-box" class="search-input" placeholder="🔍  Пошук бренду...">
+</div>
+
+<div class="table-wrap">
+<table class="data-table" id="brand-table">
+  <thead>
+    <tr>
+      <th class="col-icon-preview"></th>
+      <th>Бренд</th>
+      <th>Завантажити PNG/ICO</th>
+      <th>або емодзі</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for brand in all_brands %}
+    {% set info = icons.get(brand) %}
+    <tr>
+      <td class="col-icon-preview">
+        {% if info and info.icon_file %}
+          <img src="{{ url_for('static', filename='brand_icons/' + info.icon_file) }}" class="brand-icon-img-lg" alt="">
+        {% elif info and info.icon %}
+          <span class="brand-icon-emoji-lg">{{ info.icon }}</span>
+        {% else %}
+          <span class="muted">—</span>
+        {% endif %}
+      </td>
+      <td>{{ brand }}</td>
+      <td>
+        <form method="post" action="{{ url_for('brand_icon_upload') }}" enctype="multipart/form-data" class="icon-row-form">
+          <input type="hidden" name="brand" value="{{ brand }}">
+          <input type="file" name="file" accept=".png,.ico,image/png,image/x-icon" class="icon-file-input">
+          <button type="submit" class="btn btn-ghost btn-sm">Завантажити</button>
+        </form>
+      </td>
+      <td>
+        <form method="post" action="{{ url_for('brand_icon_set_emoji') }}" class="icon-row-form">
+          <input type="hidden" name="brand" value="{{ brand }}">
+          <input type="text" name="icon" maxlength="4" placeholder="напр. ⭐"
+                 value="{{ info.icon if info and not info.icon_file else '' }}" class="icon-input">
+          <button type="submit" class="btn btn-ghost btn-sm">OK</button>
+        </form>
+      </td>
+      <td>
+        {% if info and (info.icon_file or info.icon) %}
+        <form method="post" action="{{ url_for('brand_icon_remove') }}" onsubmit="return confirm('Видалити іконку для «{{ brand }}»?');">
+          <input type="hidden" name="brand" value="{{ brand }}">
+          <button type="submit" class="link-danger" title="Видалити іконку">🗑</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<script>
+document.getElementById('search-box')?.addEventListener('input', function () {
+  var q = this.value.trim().toLowerCase();
+  document.querySelectorAll('#brand-table tbody tr').forEach(function (row) {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

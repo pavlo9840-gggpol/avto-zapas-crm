@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.db
+*.db-journal
+.env
+.venv/
+venv/
+
+static/brand_icons/*
+!static/brand_icons/.gitkeep

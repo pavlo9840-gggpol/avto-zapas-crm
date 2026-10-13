@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Звіти{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">📈 Звіти</h1>
+  <div class="page-actions">
+    <a class="btn {{ 'btn-add' if period == 'week' else 'btn-ghost' }}" href="{{ url_for('reports_view', period='week') }}">Тиждень</a>
+    <a class="btn {{ 'btn-add' if period == 'month' else 'btn-ghost' }}" href="{{ url_for('reports_view', period='month') }}">Місяць</a>
+  </div>
+</div>
+<p class="muted">{{ period_label }} · скасовані продажі не враховуються.</p>
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-label">Продажів</div><div class="stat-value">{{ summary['sales'] }}</div></div>
+  <div class="stat-card"><div class="stat-label">Виручка</div><div class="stat-value">{{ "%.2f"|format(summary['revenue']) }} ₴</div></div>
+  {% if is_admin %}<div class="stat-card"><div class="stat-label">Прибуток</div><div class="stat-value">{{ "%.2f"|format(summary['profit']) }} ₴</div></div>{% endif %}
+</div>
+
+<div class="two-col">
+  <section class="panel">
+    <h2>Продажі за категоріями</h2>
+    {% if by_category %}
+    <div class="table-wrap"><table class="data-table">
+      <thead><tr><th>Категорія</th><th>Продажів</th><th>Товарів</th><th>Виручка</th>{% if is_admin %}<th>Прибуток</th>{% endif %}</tr></thead>
+      <tbody>{% for row in by_category %}
+        <tr><td>{{ CATEGORY_LABELS[row['category']] }}</td><td>{{ row['sales'] }}</td><td>{{ row['quantity'] }}</td><td>{{ "%.2f"|format(row['revenue']) }} ₴</td>{% if is_admin %}<td>{{ "%.2f"|format(row['profit']) }} ₴</td>{% endif %}</tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="muted">За цей період продажів немає.</p>{% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Продажі за продавцями</h2>
+    {% if by_seller %}
+    <div class="table-wrap"><table class="data-table">
+      <thead><tr><th>Продавець</th><th>Продажів</th><th>Виручка</th>{% if is_admin %}<th>Прибуток</th>{% endif %}</tr></thead>
+      <tbody>{% for row in by_seller %}
+        <tr><td>{{ row['username'] }}</td><td>{{ row['sales'] }}</td><td>{{ "%.2f"|format(row['revenue']) }} ₴</td>{% if is_admin %}<td>{{ "%.2f"|format(row['profit']) }} ₴</td>{% endif %}</tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="muted">За цей період продажів немає.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

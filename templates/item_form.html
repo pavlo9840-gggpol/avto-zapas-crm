@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Редагування' if is_edit else 'Прихід' }} · {{ CATEGORY_LABELS[category] }}{% endblock %}
+{% block content %}
+<h1 class="page-title">{{ '✏️ Редагувати позицію' if is_edit else '➕ Прихід' }} · {{ CATEGORY_LABELS[category] }}</h1>
+
+<form method="post" class="item-form">
+  <label>Бренд</label>
+  <input type="text" name="brand" list="brand-list" value="{{ item['brand'] if item else '' }}" required>
+  <datalist id="brand-list">
+    {% for b in brands %}<option value="{{ b }}">{% endfor %}
+  </datalist>
+
+  {% if cat_type == 'tire' %}
+    <label>Модель протектора (необов'язково)</label>
+    <input type="text" name="tread_model" value="{{ item['tread_model'] if item else '' }}">
+
+    {% if is_car %}
+      <label>Розмір</label>
+      <div class="row-3">
+        <select name="width">
+          {% set cur_w = (item['size'].split('/')[0] if item and item['size'] else '') %}
+          {% for w in car_widths %}<option value="{{ w }}" {{ 'selected' if cur_w == w|string else '' }}>{{ w }}</option>{% endfor %}
+        </select>
+        <select name="profile">
+          {% set cur_p = (item['size'].split('/')[1].split(' ')[0] if item and item['size'] and '/' in item['size'] else '') %}
+          {% for p in car_profiles %}<option value="{{ p }}" {{ 'selected' if cur_p == p|string else '' }}>{{ p }}</option>{% endfor %}
+        </select>
+        <select name="diameter">
+          {% set cur_d = (item['size'].split(' ')[-1] if item and item['size'] else '') %}
+          {% for d in car_diameters %}<option value="{{ d }}" {{ 'selected' if cur_d == d else '' }}>{{ d }}</option>{% endfor %}
+        </select>
+      </div>
+    {% else %}
+      <label>Розмір</label>
+      <input type="text" name="size" list="moto-size-list" value="{{ item['size'] if item else '' }}" placeholder="напр. 120/70 ZR17" required>
+      <datalist id="moto-size-list">
+        {% for s in moto_sizes %}<option value="{{ s }}">{% endfor %}
+      </datalist>
+    {% endif %}
+
+    <label>Сезон</label>
+    <select name="season">
+      {% for s in seasons %}<option value="{{ s }}" {{ 'selected' if item and item['season'] == s else '' }}>{{ s }}</option>{% endfor %}
+    </select>
+
+    <label>Індекси навантаження (LI) і швидкості (SI)</label>
+    <div class="row-2">
+      <select name="load_index" id="li-select">
+        <option value="">—</option>
+        {% for li in load_indexes %}<option value="{{ li }}" {{ 'selected' if item and item['load_index'] == li else '' }}>{{ li }}</option>{% endfor %}
+      </select>
+      <select name="speed_index" id="si-select">
+        <option value="">—</option>
+        {% for si in speed_indexes %}<option value="{{ si }}" {{ 'selected' if item and item['speed_index'] == si else '' }}>{{ si }}</option>{% endfor %}
+      </select>
+    </div>
+    <div id="li-si-decode" class="decode-hint muted"></div>
+
+    <label>DOT код (необов'язково, 3 або 4 цифри)</label>
+    <input type="text" name="dot_code" id="dot-input" value="{{ item['dot_code'] if item else '' }}" placeholder="напр. 2523" maxlength="4">
+    <div id="dot-decode" class="decode-hint muted"></div>
+
+  {% elif cat_type == 'battery' %}
+    <label>Тип транспорту</label>
+    <select name="transport_type">
+      {% for t in transport_types %}<option value="{{ t }}" {{ 'selected' if item and item['transport_type'] == t else '' }}>{{ t }}</option>{% endfor %}
+    </select>
+
+    <label>Ємність (Ah) та пусковий струм (A)</label>
+    <div class="row-2">
+      <input type="number" step="0.1" name="capacity_ah" value="{{ item['capacity_ah'] if item else '' }}" required>
+      <input type="number" step="0.1" name="cold_crank_amps" value="{{ item['cold_crank_amps'] if item else '' }}" required>
+    </div>
+
+    <label>Полярність</label>
+    <select name="polarity">
+      {% for p in polarity_options %}<option value="{{ p }}" {{ 'selected' if item and item['polarity'] == p else '' }}>{{ p }}</option>{% endfor %}
+    </select>
+
+    <label>Тип корпусу</label>
+    <select name="case_type">
+      {% for c in case_types %}<option value="{{ c }}" {{ 'selected' if item and item['case_type'] == c else '' }}>{{ c }}</option>{% endfor %}
+    </select>
+
+  {% else %}
+    <label>Назва (необов'язково)</label>
+    <input type="text" name="title" value="{{ item['title'] if item else '' }}">
+
+    <label>В'язкість</label>
+    <input type="text" name="viscosity" list="viscosity-list" value="{{ item['viscosity'] if item else '' }}" required>
+    <datalist id="viscosity-list">
+      {% for v in viscosity_types %}<option value="{{ v }}">{% endfor %}
+    </datalist>
+
+    <label>Основа</label>
+    <select name="base_type">
+      {% for b in base_types %}<option value="{{ b }}" {{ 'selected' if item and item['base_type'] == b else '' }}>{{ b }}</option>{% endfor %}
+    </select>
+
+    <label>Об'єм</label>
+    <select name="volume">
+      {% for v in volumes %}<option value="{{ v }}" {{ 'selected' if item and item['volume'] == v else '' }}>{{ v }}</option>{% endfor %}
+    </select>
+  {% endif %}
+
+  <label>Кольорова мітка (необов'язково)</label>
+  <div class="color-picker">
+    <label class="color-swatch color-swatch-none">
+      <input type="radio" name="color_tag" value="" {{ 'checked' if not item or not item['color_tag'] else '' }}>
+      <span title="Без мітки">✕</span>
+    </label>
+    {% for code, label, hexval in COLOR_TAGS %}
+    <label class="color-swatch">
+      <input type="radio" name="color_tag" value="{{ code }}" {{ 'checked' if item and item['color_tag'] == code else '' }}>
+      <span style="background:{{ hexval }};" title="{{ label }}"></span>
+    </label>
+    {% endfor %}
+  </div>
+
+  <label>Собівартість за одиницю (₴) <span class="muted">(необов'язково, приховано від продавців)</span></label>
+  <input type="number" step="0.01" min="0" name="cost_price" id="cost-price-input" value="{{ item['cost_price'] if item else '' }}">
+
+  <label>Ціна за одиницю (₴)</label>
+  <input type="number" step="0.01" min="0" name="price" id="price-input" value="{{ item['price'] if item else '' }}" required>
+
+  <div id="margin-hint" class="decode-hint muted"></div>
+
+  <label>Кількість {{ 'додати' if not is_edit else '(нове значення залишку)' }}</label>
+  <input type="number" min="1" name="quantity" value="{{ item['quantity'] if item else '' }}" required>
+
+  <div class="form-actions">
+    <a href="{{ url_for('stock_list', category=category) }}" class="btn btn-ghost">Скасувати</a>
+    <button type="submit" class="btn btn-add">{{ '💾 Зберегти зміни' if is_edit else '➕ Додати на склад' }}</button>
+  </div>
+</form>
+
+{% if cat_type == 'tire' %}
+<script>
+var LOAD_INDEX_TABLE = {{ load_index_table_json|safe }};
+var SPEED_INDEX_TABLE = {{ speed_index_table_json|safe }};
+
+function updateLiSiDecode() {
+  var li = document.getElementById('li-select').value;
+  var si = document.getElementById('si-select').value;
+  var parts = [];
+  if (LOAD_INDEX_TABLE[li]) parts.push('до ' + LOAD_INDEX_TABLE[li] + ' кг/колесо');
+  if (SPEED_INDEX_TABLE[si]) parts.push('до ' + SPEED_INDEX_TABLE[si] + ' км/год');
+  document.getElementById('li-si-decode').textContent = parts.join(' · ');
+}
+document.getElementById('li-select').addEventListener('change', updateLiSiDecode);
+document.getElementById('si-select').addEventListener('change', updateLiSiDecode);
+updateLiSiDecode();
+
+function updateDotDecode() {
+  var code = document.getElementById('dot-input').value.trim();
+  var out = document.getElementById('dot-decode');
+  if (!/^\d{3,4}$/.test(code)) { out.textContent = ''; return; }
+  if (code.length === 4) {
+    var week = parseInt(code.slice(0, 2), 10);
+    var year = parseInt(code.slice(2), 10);
+    out.textContent = (week >= 1 && week <= 53)
+      ? ('DOT ' + code + ': ' + week + '-й тиждень ' + (2000 + year) + ' року')
+      : 'формат не розпізнано';
+  } else {
+    var week3 = parseInt(code.slice(0, 2), 10);
+    out.textContent = (week3 >= 1 && week3 <= 53)
+      ? ('DOT ' + code + ': ' + week3 + '-й тиждень, 199' + code[2] + ' рік (старий формат)')
+      : 'формат не розпізнано';
+  }
+}
+document.getElementById('dot-input').addEventListener('input', updateDotDecode);
+updateDotDecode();
+</script>
+{% endif %}
+
+<script>
+(function () {
+  var costInput = document.getElementById('cost-price-input');
+  var priceInput = document.getElementById('price-input');
+  var hint = document.getElementById('margin-hint');
+  function updateMargin() {
+    var cost = parseFloat((costInput.value || '0').replace(',', '.'));
+    var price = parseFloat((priceInput.value || '0').replace(',', '.'));
+    if (!price || isNaN(cost)) { hint.textContent = ''; return; }
+    var margin = price - cost;
+    var pct = price ? (margin / price * 100) : 0;
+    hint.textContent = 'Маржа: ' + margin.toFixed(2) + ' ₴ (' + pct.toFixed(1) + '% від ціни продажу)';
+  }
+  costInput.addEventListener('input', updateMargin);
+  priceInput.addEventListener('input', updateMargin);
+  updateMargin();
+})();
+</script>
+{% endblock %}

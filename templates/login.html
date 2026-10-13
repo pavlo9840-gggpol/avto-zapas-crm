@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Вхід{% endblock %}
+{% block auth_content %}
+<div class="login-wrap">
+  <form class="login-card" method="post">
+    <div class="login-icon">🛞</div>
+    <h1>АвтоЗапас</h1>
+    <p class="muted">Простий облік магазину шин, акумуляторів і мастил</p>
+    <p class="muted">Введіть логін і пароль, щоб продовжити</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <input type="text" name="username" placeholder="Логін" autofocus required autocomplete="username">
+    <input type="password" name="password" placeholder="Пароль" required autocomplete="current-password">
+    <button type="submit">Увійти</button>
+    {% if donation_url %}
+    <p class="muted" style="margin:16px 0 4px;">Користуєтесь АвтоЗапасом? Підтримайте розвиток проєкту.</p>
+    <a class="btn btn-ghost" href="{{ donation_url }}" target="_blank" rel="noopener noreferrer">💛 Підтримати проєкт донатом</a>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

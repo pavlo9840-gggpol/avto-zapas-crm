@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Користувачі{% endblock %}
+{% block content %}
+<h1 class="page-title">👥 Користувачі</h1>
+<p class="muted" style="max-width:640px;">
+  Адміністратор має повний доступ (прихід, редагування, видалення, імпорт, налаштування).
+  Продавець бачить склад, шукає, продає та дивиться історію, але не може змінювати
+  позиції на складі чи налаштування системи.
+</p>
+
+<div class="table-wrap" style="margin-bottom:24px;">
+<table class="data-table">
+  <thead><tr><th>Логін</th><th>Роль</th><th>Створено</th><th></th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u['username'] }}{% if u['id'] == session.get('user_id') %} <span class="muted">(ви)</span>{% endif %}</td>
+      <td><span class="role-badge role-{{ u['role'] }}">{{ ROLE_LABELS.get(u['role'], u['role']) }}</span></td>
+      <td class="muted">{{ u['created_at'] }}</td>
+      <td class="col-actions">
+        <details class="reset-pw-details">
+          <summary title="Скинути пароль">🔑</summary>
+          <form method="post" action="{{ url_for('users_reset_password', user_id=u['id']) }}" class="icon-row-form" style="margin-top:6px;">
+            <input type="password" name="new_password" placeholder="Новий пароль" minlength="4" required class="icon-input" style="width:120px;">
+            <button type="submit" class="btn btn-ghost btn-sm">OK</button>
+          </form>
+        </details>
+        {% if u['id'] != session.get('user_id') and not (u['role'] == 'admin' and admin_count <= 1) %}
+        <form method="post" action="{{ url_for('users_delete', user_id=u['id']) }}" class="inline-form" onsubmit="return confirm('Видалити користувача «{{ u['username'] }}»?');">
+          <button type="submit" class="link-danger" title="Видалити">🗑</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="panel panel-narrow">
+  <h2>➕ Новий користувач</h2>
+  <form method="post" action="{{ url_for('users_add') }}" class="item-form">
+    <label>Логін</label>
+    <input type="text" name="username" required minlength="2">
+    <label>Пароль</label>
+    <input type="password" name="password" required minlength="4">
+    <label>Роль</label>
+    <select name="role">
+      <option value="seller">Продавець</option>
+      <option value="admin">Адміністратор</option>
+    </select>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-add">Створити</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

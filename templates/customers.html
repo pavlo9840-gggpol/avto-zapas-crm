@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Клієнти{% endblock %}
+{% block content %}
+<h1 class="page-title">👤 Клієнти</h1>
+
+<form method="get" class="toolbar" style="margin-bottom:18px;">
+  <input type="text" name="q" value="{{ q }}" class="search-input" placeholder="Пошук за ім'ям або телефоном...">
+  <button type="submit" class="btn btn-ghost btn-sm">Знайти</button>
+</form>
+
+<div class="two-col">
+  <div>
+    {% if not customers %}
+      <p class="muted">{{ 'Нічого не знайдено.' if q else 'Клієнтів поки немає — вони додаються автоматично при продажу, або додайте вручну праворуч.' }}</p>
+    {% else %}
+    <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Ім'я</th><th>Телефон</th><th>Продажів</th><th>Витрачено</th></tr></thead>
+      <tbody>
+      {% for c in customers %}
+        {% set s = spend.get(c['id']) %}
+        <tr>
+          <td><a href="{{ url_for('customer_detail', customer_id=c['id']) }}">{{ c['name'] }}</a></td>
+          <td class="muted">{{ c['phone'] or '—' }}</td>
+          <td>{{ s.sales if s else 0 }}</td>
+          <td class="nowrap">{{ "%.0f"|format(s.total) if s else 0 }} ₴</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="panel panel-narrow">
+    <h2>➕ Новий клієнт</h2>
+    <form method="post" action="{{ url_for('customers_add') }}" class="item-form">
+      <label>Ім'я</label>
+      <input type="text" name="name" required>
+      <label>Телефон (необов'язково)</label>
+      <input type="text" name="phone">
+      <label>Примітка (необов'язково)</label>
+      <input type="text" name="notes">
+      <div class="form-actions">
+        <button type="submit" class="btn btn-add">Додати</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

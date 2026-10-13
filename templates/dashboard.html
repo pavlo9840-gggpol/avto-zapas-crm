@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Дашборд{% endblock %}
+{% block content %}
+<h1 class="page-title">Дашборд</h1>
+
+<form method="get" action="{{ url_for('search_view') }}" class="dashboard-search">
+  <input type="text" name="q" placeholder="🔍  Швидкий пошук по всьому складу (бренд, модель, розмір, DOT...)" autofocus>
+  <button type="submit" class="btn btn-add">Знайти</button>
+</form>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-label">Вартість складу</div>
+    <div class="stat-value">{{ "%.0f"|format(total_value) }} ₴</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Продажів сьогодні</div>
+    <div class="stat-value">{{ sales_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Виручка сьогодні</div>
+    <div class="stat-value">{{ "%.0f"|format(sales_revenue) }} ₴</div>
+  </div>
+  <div class="stat-card {{ 'stat-warn' if low_count else '' }}">
+    <div class="stat-label">Позицій на межі закінчення</div>
+    <div class="stat-value">{{ low_count }}</div>
+  </div>
+  {% if session.get('role') == 'admin' %}
+  <div class="stat-card">
+    <div class="stat-label">Прибуток сьогодні</div>
+    <div class="stat-value">{{ "%.0f"|format(today_profit) }} ₴</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Потенційний прибуток складу</div>
+    <div class="stat-value">{{ "%.0f"|format(total_potential_profit) }} ₴</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="two-col">
+  <div class="panel">
+    <h2>⚠️ Закінчується на складі</h2>
+    {% if low_items %}
+    <table class="mini-table">
+      <thead><tr><th>Категорія</th><th>Позиція</th><th>Залишок</th></tr></thead>
+      <tbody>
+      {% for cat, item in low_items %}
+        <tr>
+          <td>{{ CATEGORY_LABELS[cat] }}</td>
+          <td>{{ item_label(cat, item) }}</td>
+          <td class="qty-low">{{ item['available_quantity'] }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="muted">Все в нормі, критичних залишків немає.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>🕘 Остання активність</h2>
+    {% if recent %}
+    <table class="mini-table">
+      <thead><tr><th>Коли</th><th>Дія</th><th>Позиція</th><th>К-сть</th></tr></thead>
+      <tbody>
+      {% for r in recent %}
+        <tr>
+          <td class="muted">{{ r['datetime'] }}</td>
+          <td>{{ r['operation'] }}</td>
+          <td>{{ item_label(r['category'], r) }}</td>
+          <td>{{ r['quantity'] }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="muted">Поки що немає жодної операції.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

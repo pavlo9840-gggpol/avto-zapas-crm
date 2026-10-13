@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Пошук{% endblock %}
+{% block content %}
+<h1 class="page-title">🔍 Пошук по всьому складу</h1>
+
+<form method="get" class="toolbar" style="margin-bottom:18px;">
+  <input type="text" name="q" value="{{ q }}" class="search-input" placeholder="Бренд, модель, розмір, DOT..." autofocus>
+  <button type="submit" class="btn btn-add btn-sm">Знайти</button>
+</form>
+
+{% if not q %}
+  <p class="muted">Введіть запит, щоб знайти позицію одразу по всіх категоріях складу.</p>
+{% elif not results %}
+  <p class="muted">За запитом «{{ q }}» нічого не знайдено.</p>
+{% else %}
+  <p class="muted" style="margin-bottom:12px;">Знайдено: {{ results|length }}{{ ' (показано перші 50 на категорію)' if results|length >= 50 else '' }}</p>
+  <div class="table-wrap">
+  <table class="data-table">
+    <thead><tr><th>Категорія</th><th>Позиція</th><th>Ціна</th><th>К-сть</th><th></th></tr></thead>
+    <tbody>
+    {% for cat, item in results %}
+      <tr>
+        <td>{{ CATEGORY_LABELS[cat] }}</td>
+        <td>{{ item_label(cat, item) }}</td>
+        <td class="nowrap">{{ "%.0f"|format(item['price']) }} ₴</td>
+        <td>{{ item['quantity'] }}</td>
+        <td class="col-actions">
+          <a href="{{ url_for('stock_list', category=cat) }}?q={{ item['brand'] }}" title="До складу">↗</a>
+          {% if session.get('role') == 'admin' %}
+          <a href="{{ url_for('item_edit', category=cat, item_id=item['id']) }}" title="Редагувати">✏️</a>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endif %}
+{% endblock %}

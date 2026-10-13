@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Каса{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">💳 Каса</h1>
+    <p class="muted">Оберіть товари, вкажіть отриману суму — решта порахується автоматично.</p>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('cash_view') }}" id="cash-form">
+  <div class="toolbar">
+    <input type="search" id="cash-search" class="search-input" placeholder="🔍 Пошук товару за назвою, брендом або розміром">
+  </div>
+  {% if items %}
+  <div class="table-wrap">
+    <table class="data-table cash-table">
+      <thead><tr><th></th><th>Категорія</th><th>Товар</th><th>Ціна</th><th>Доступно</th><th>Кількість</th></tr></thead>
+      <tbody>
+      {% for row in items %}
+        {% set item = row.item %}
+        <tr data-price="{{ item['price'] }}" data-available="{{ row.available }}">
+          <td><input type="checkbox" class="cash-check" name="sell_{{ item['id'] }}" {% if not row.available %}disabled{% endif %}></td>
+          <td>{{ CATEGORY_LABELS[item['category']] }}</td>
+          <td>{{ item_label(item['category'], item) }}</td>
+          <td class="nowrap">{{ "%.2f"|format(item['price']) }} ₴</td>
+          <td>{{ row.available }} шт.</td>
+          <td><input type="number" name="qty_{{ item['id'] }}" class="cash-qty" min="1" max="{{ row.available }}" value="1" disabled></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="cash-checkout panel">
+    <label>Клієнт (необов'язково)
+      <input type="text" name="customer" list="customer-list" class="customer-input">
+    </label>
+    <datalist id="customer-list">{% for name in customer_names %}<option value="{{ name }}">{% endfor %}</datalist>
+    <div class="cash-totals">
+      <div>До сплати: <strong id="cash-total">0.00 ₴</strong></div>
+      <label>Отримано, ₴
+        <input type="number" name="received" id="cash-received" min="0" step="0.01" required>
+      </label>
+      <div>Решта: <strong id="cash-change">—</strong></div>
+    </div>
+    <button type="submit" class="btn btn-sell">✅ Оформити продаж</button>
+  </div>
+  {% else %}
+  <p class="muted">На складі поки немає товарів для продажу.</p>
+  {% endif %}
+</form>
+
+<script>
+(function () {
+  var rows = Array.prototype.slice.call(document.querySelectorAll('.cash-table tbody tr'));
+  var search = document.getElementById('cash-search');
+  var received = document.getElementById('cash-received');
+  var totalEl = document.getElementById('cash-total');
+  var changeEl = document.getElementById('cash-change');
+  if (!received || !totalEl || !changeEl) return;
+
+  function updateTotal() {
+    var total = 0;
+    rows.forEach(function (row) {
+      var checkbox = row.querySelector('.cash-check');
+      var quantity = row.querySelector('.cash-qty');
+      quantity.disabled = !checkbox.checked;
+      if (checkbox.checked) total += Number(row.dataset.price) * Number(quantity.value || 0);
+    });
+    total = Math.round(total * 100) / 100;
+    totalEl.textContent = total.toFixed(2) + ' ₴';
+    if (received.value === '') {
+      changeEl.textContent = '—';
+    } else {
+      changeEl.textContent = (Number(received.value) - total).toFixed(2) + ' ₴';
+      changeEl.classList.toggle('qty-low', Number(received.value) < total);
+    }
+  }
+
+  rows.forEach(function (row) {
+    row.querySelector('.cash-check').addEventListener('change', updateTotal);
+    row.querySelector('.cash-qty').addEventListener('input', updateTotal);
+  });
+  received.addEventListener('input', updateTotal);
+  search.addEventListener('input', function () {
+    var q = search.value.trim().toLowerCase();
+    rows.forEach(function (row) {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+})();
+</script>
+{% endblock %}

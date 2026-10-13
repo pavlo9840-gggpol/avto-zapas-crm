@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Документ {{ sale_id }}{% endblock %}
+{% block content %}
+<div class="receipt-actions no-print">
+  <a class="btn btn-ghost" href="{{ url_for('cash_view') }}">← До каси</a>
+  <div class="doc-toggle">
+    <a class="doc-toggle-btn {{ 'active' if doc_type == 'receipt' else '' }}" href="{{ url_for('receipt_view', sale_id=sale_id, doc='receipt') }}">🧾 Чек</a>
+    <a class="doc-toggle-btn {{ 'active' if doc_type == 'goods_invoice' else '' }}" href="{{ url_for('receipt_view', sale_id=sale_id, doc='goods_invoice') }}">📦 Товарна</a>
+    <a class="doc-toggle-btn {{ 'active' if doc_type == 'settlement_invoice' else '' }}" href="{{ url_for('receipt_view', sale_id=sale_id, doc='settlement_invoice') }}">🧾 Розрахункова</a>
+  </div>
+  <button type="button" class="btn btn-add" onclick="window.print()">🖨 Друкувати</button>
+</div>
+
+{% if sale and sale['canceled_at'] %}
+<div class="flash flash-error no-print">Цей продаж скасовано {{ sale['canceled_at'] }} користувачем {{ sale['canceled_by'] }}.</div>
+{% elif session.get('role') == 'admin' %}
+<form method="post" action="{{ url_for('sale_cancel', sale_id=sale_id) }}" class="no-print" onsubmit="return confirm('Скасувати продаж і повернути товар на склад?');">
+  <button type="submit" class="btn btn-ghost">↩️ Скасувати продаж / повернути товар</button>
+</form>
+{% endif %}
+
+<div class="receipt-sheet">
+  {{ rendered }}
+</div>
+{% if sale %}
+{% endif %}
+
+{% if doc_type in ('goods_invoice', 'settlement_invoice') %}
+<p class="muted no-print" style="max-width:480px;">
+  Це внутрішній документ магазину, а не фіскальний чек чи податкова накладна.
+  Вигляд документа можна змінити на сторінці «Налаштування» (для адміністратора).
+</p>
+{% endif %}
+{% endblock %}

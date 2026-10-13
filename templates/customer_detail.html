@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ customer['name'] }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">👤 {{ customer['name'] }}</h1>
+  <div class="page-actions">
+    <a class="btn btn-ghost" href="{{ url_for('customers_view') }}">← До клієнтів</a>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="panel panel-narrow">
+    <h2>Контактні дані</h2>
+    <form method="post" action="{{ url_for('customers_edit', customer_id=customer['id']) }}" class="item-form">
+      <label>Ім'я</label>
+      <input type="text" name="name" value="{{ customer['name'] }}" required>
+      <label>Телефон</label>
+      <input type="text" name="phone" value="{{ customer['phone'] }}">
+      <label>Примітка</label>
+      <input type="text" name="notes" value="{{ customer['notes'] }}">
+      <div class="form-actions">
+        <button type="submit" class="btn btn-add">💾 Зберегти</button>
+      </div>
+    </form>
+    {% if session.get('role') == 'admin' %}
+    <form method="post" action="{{ url_for('customers_delete', customer_id=customer['id']) }}" onsubmit="return confirm('Видалити клієнта «{{ customer['name'] }}»? Історія покупок залишиться.');" style="margin-top:10px;">
+      <button type="submit" class="link-danger btn btn-ghost btn-sm">🗑 Видалити клієнта</button>
+    </form>
+    {% endif %}
+    <p class="muted" style="margin-top:14px;">Клієнт з {{ customer['created_at'] }}</p>
+  </div>
+
+  <div class="panel">
+    <h2>Історія покупок · всього {{ "%.0f"|format(total_spent) }} ₴</h2>
+    {% if not purchases %}
+      <p class="muted">Покупок поки немає.</p>
+    {% else %}
+    <table class="mini-table">
+      <thead><tr><th>Коли</th><th>Категорія</th><th>Позиція</th><th>К-сть</th><th>Сума</th><th></th></tr></thead>
+      <tbody>
+      {% for r in purchases %}
+        <tr>
+          <td class="muted nowrap">{{ r['datetime'] }}</td>
+          <td>{{ CATEGORY_LABELS[r['category']] }}</td>
+          <td>{{ item_label(r['category'], r) }}</td>
+          <td>{{ r['quantity'] }}</td>
+          <td class="nowrap">{{ "%.0f"|format(r['price'] * r['quantity']) }} ₴</td>
+          <td>{% if r['sale_id'] %}<a href="{{ url_for('receipt_view', sale_id=r['sale_id']) }}" title="Чек">🧾</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Імпорт · {{ CATEGORY_LABELS[category] }}{% endblock %}
+{% block content %}
+<h1 class="page-title">📥 Масовий імпорт · {{ CATEGORY_LABELS[category] }}</h1>
+<p class="muted" style="max-width:640px;">
+  Завантажте файл CSV або Excel (.xlsx) зі списком позицій. Перший рядок файлу
+  має бути заголовком з такими назвами колонок (порядок колонок не важливий,
+  зайві колонки просто ігноруються):
+</p>
+
+<div class="panel panel-narrow" style="margin-bottom:20px;">
+  <h2>Очікувані колонки</h2>
+  <table class="mini-table">
+    {% for label, key in columns %}
+    <tr>
+      <td>{{ label }}</td>
+      <td class="muted">
+        {% if key == 'quantity' %}обов'язково, ціле число > 0
+        {% elif key == 'brand' %}обов'язково
+        {% elif key == 'price' %}число, кома або крапка
+        {% elif key == 'color_tag' %}необов'язково (red/orange/yellow/green/blue/purple/gray)
+        {% else %}необов'язково
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <a href="{{ url_for('import_template_csv', category=category) }}" class="btn btn-ghost btn-sm" style="margin-top:12px;">⬇️ Завантажити порожній шаблон CSV</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="item-form">
+  <label>Файл (CSV або .xlsx)</label>
+  <input type="file" name="file" accept=".csv,.xlsx" required>
+  <div class="form-actions">
+    <a href="{{ url_for('stock_list', category=category) }}" class="btn btn-ghost">Скасувати</a>
+    <button type="submit" class="btn btn-add">📥 Імпортувати</button>
+  </div>
+</form>
+
+<p class="muted" style="margin-top:16px;max-width:640px;">
+  Позиції з однаковими ключовими атрибутами (бренд, розмір, сезон, DOT тощо) об'єднаються
+  з уже наявними на складі (кількість додасться) — дублів не буде. Кожен імпортований рядок
+  також потрапляє в історію операцій категорії.
+</p>
+{% endblock %}

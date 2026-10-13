@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Налаштування{% endblock %}
+{% block content %}
+<h1 class="page-title">⚙️ Налаштування</h1>
+
+<div class="two-col">
+  <div class="panel panel-narrow">
+    <h2>Зміна мого пароля</h2>
+    <p class="muted">Пароль вашого особистого акаунта, зберігається у базі даних у захешованому вигляді.</p>
+    <form method="post" class="item-form">
+      <input type="hidden" name="form_type" value="password">
+      <label>Поточний пароль</label>
+      <input type="password" name="old_password" required>
+      <label>Новий пароль</label>
+      <input type="password" name="new_password" required minlength="4">
+      <label>Підтвердження нового пароля</label>
+      <input type="password" name="new_password2" required minlength="4">
+      <div class="form-actions">
+        <button type="submit" class="btn btn-add">Зберегти новий пароль</button>
+      </div>
+    </form>
+  </div>
+
+  {% if session.get('role') == 'admin' %}
+  <div class="panel panel-narrow">
+    <h2>Реквізити для чеків і накладних</h2>
+    <p class="muted">Показуються у шапці друкованих документів продажу.</p>
+    <form method="post" class="item-form">
+      <input type="hidden" name="form_type" value="company">
+      <label>Назва компанії / магазину</label>
+      <input type="text" name="company_name" value="{{ company.get('company_name', '') }}">
+      <label>Адреса</label>
+      <input type="text" name="company_address" value="{{ company.get('company_address', '') }}">
+      <label>Телефон</label>
+      <input type="text" name="company_phone" value="{{ company.get('company_phone', '') }}">
+      <label>ЄДРПОУ / ІПН (необов'язково)</label>
+      <input type="text" name="company_edrpou" value="{{ company.get('company_edrpou', '') }}">
+      <div class="form-actions">
+        <button type="submit" class="btn btn-add">Зберегти реквізити</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+{% if session.get('role') == 'admin' %}
+<div class="panel" style="margin-top:20px;">
+  <h2>🖨 Шаблони чека та накладних</h2>
+  <p class="muted" style="max-width:680px;">
+    Вигляд чека, товарної та розрахункової накладних можна редагувати як звичайний HTML. Таблиця позицій
+    генерується автоматично і вставляється замість <code>{{ '{{items_table}}' }}</code>.
+    Доступні плейсхолдери:
+  </p>
+  <div class="placeholder-list muted">
+    {% for ph, label in placeholders %}<span><code>{{ ph }}</code> — {{ label }}</span>{% endfor %}
+  </div>
+
+  <form method="post" class="template-editor-form">
+    <input type="hidden" name="form_type" value="templates">
+
+    <div class="template-editor-col">
+      <label>Шаблон чека</label>
+      <textarea name="doc_template_receipt" class="template-textarea" spellcheck="false">{{ templates.get('doc_template_receipt', '') }}</textarea>
+      <label class="reset-checkbox"><input type="checkbox" name="reset_doc_template_receipt" value="1"> Скинути до типового вигляду при збереженні</label>
+    </div>
+
+    <div class="template-editor-col">
+      <label>Шаблон товарної накладної</label>
+      <textarea name="doc_template_goods_invoice" class="template-textarea" spellcheck="false">{{ templates.get('doc_template_goods_invoice', '') }}</textarea>
+      <label class="reset-checkbox"><input type="checkbox" name="reset_doc_template_goods_invoice" value="1"> Скинути до типового вигляду при збереженні</label>
+    </div>
+
+    <div class="template-editor-col">
+      <label>Шаблон розрахункової накладної</label>
+      <textarea name="doc_template_invoice" class="template-textarea" spellcheck="false">{{ templates.get('doc_template_invoice', '') }}</textarea>
+      <label class="reset-checkbox"><input type="checkbox" name="reset_doc_template_invoice" value="1"> Скинути до типового вигляду при збереженні</label>
+    </div>
+
+    <div class="form-actions" style="grid-column:1 / -1;">
+      <button type="submit" class="btn btn-add">💾 Зберегти шаблони</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

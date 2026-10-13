@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Резерви{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">📌 Резерви товару</h1>
+  <a class="btn btn-ghost" href="{{ url_for('cash_view') }}">До каси</a>
+</div>
+
+<div class="two-col">
+  <div class="panel">
+    <h2>Новий резерв</h2>
+    {% if items %}
+    <form method="post" class="item-form">
+      <label>Товар</label>
+      <select name="item_id" required>
+        {% for item in items %}
+        <option value="{{ item['id'] }}" {% if not item['available_quantity'] %}disabled{% endif %}>{{ CATEGORY_LABELS[item['category']] }} · {{ item_label(item['category'], item) }} · доступно: {{ item['available_quantity'] }}</option>
+        {% endfor %}
+      </select>
+      <label>Кількість</label>
+      <input type="number" name="quantity" min="1" value="1" required>
+      <label>Клієнт (необов'язково)</label>
+      <input type="text" name="customer">
+      <label>Телефон (необов'язково)</label>
+      <input type="tel" name="phone">
+      <label>Примітка (необов'язково)</label>
+      <input type="text" name="notes">
+      <div class="form-actions"><button type="submit" class="btn btn-add">📌 Зарезервувати</button></div>
+    </form>
+    {% else %}
+    <p class="muted">Немає товарів на складі для резервування.</p>
+    {% endif %}
+  </div>
+
+  <div>
+    <h2>Активні резерви</h2>
+    {% if reservations %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Товар</th><th>К-сть</th><th>Клієнт</th><th>Коли / хто</th><th>Дія</th></tr></thead>
+        <tbody>
+        {% for r in reservations %}
+          <tr>
+            <td>{{ CATEGORY_LABELS[r['category']] }} · {{ item_label(r['category'], r) }}{% if r['reservation_notes'] %}<br><span class="muted">{{ r['reservation_notes'] }}</span>{% endif %}</td>
+            <td>{{ r['reserved_quantity'] }}</td>
+            <td>{{ r['reserved_customer'] or '—' }}{% if r['reserved_phone'] %}<br>{{ r['reserved_phone'] }}{% endif %}</td>
+            <td>{{ r['reserved_at'] }}<br><span class="muted">{{ r['reserved_by'] }}</span></td>
+            <td>
+              <form method="post" action="{{ url_for('reservation_sell', reservation_id=r['reservation_id']) }}" class="reservation-sell">
+                <input type="number" name="received" min="{{ '%.2f'|format(r['price'] * r['reserved_quantity']) }}" step="0.01" placeholder="Отримано ₴" required>
+                <button type="submit" class="btn btn-sell btn-sm">Продати</button>
+              </form>
+              <form method="post" action="{{ url_for('reservation_release', reservation_id=r['reservation_id']) }}" onsubmit="return confirm('Скасувати цей резерв?');">
+                <button type="submit" class="btn btn-ghost btn-sm">Зняти резерв</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">Активних резервів немає.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

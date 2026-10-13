@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}АвтоЗапас{% endblock %} · АвтоЗапас</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% if session.get('authed') %}
+<div class="mobile-topbar">
+  <button type="button" id="sidebar-toggle" class="hamburger-btn" aria-label="Меню">☰</button>
+  <div class="mobile-topbar-title"><span class="brand-mark">🛞</span> АвтоЗапас</div>
+</div>
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-mark">🛞</span>
+      <span><span class="brand-text">АвтоЗапас</span><span class="brand-subtitle">Простий облік магазину шин, акумуляторів і мастил</span></span>
+    </div>
+
+    <form class="sidebar-search" method="get" action="{{ url_for('search_view') }}">
+      <span class="sidebar-search-icon">🔍</span>
+      <input type="text" name="q" placeholder="Пошук по складу..." value="{{ request.args.get('q', '') if request.endpoint == 'search_view' else '' }}">
+    </form>
+
+    <nav class="sidebar-nav">
+      <a class="navlink {{ 'active' if request.endpoint == 'dashboard' else '' }}" href="{{ url_for('dashboard') }}">
+        <span class="navlink-icon">📊</span><span class="navlink-text">Дашборд</span>
+      </a>
+      <a class="navlink {{ 'active' if request.endpoint == 'cash_view' else '' }}" href="{{ url_for('cash_view') }}">
+        <span class="navlink-icon">💳</span><span class="navlink-text">Каса</span>
+      </a>
+      <a class="navlink {{ 'active' if request.endpoint == 'reservations_view' else '' }}" href="{{ url_for('reservations_view') }}">
+        <span class="navlink-icon">📌</span><span class="navlink-text">Резерви</span>
+      </a>
+      <a class="navlink {{ 'active' if request.endpoint == 'reports_view' else '' }}" href="{{ url_for('reports_view') }}">
+        <span class="navlink-icon">📈</span><span class="navlink-text">Звіти</span>
+      </a>
+
+      {% for group_name, cats in CATEGORY_GROUPS %}
+        <div class="navgroup"><span>{{ GROUP_ICONS.get(group_name, '') }}</span>{{ group_name }}</div>
+        {% for cat, short in cats %}
+          {% set low = nav_low_stock.get(cat, 0) %}
+          <a class="navlink {{ 'active' if request.view_args and request.view_args.get('category') == cat else '' }}"
+             href="{{ url_for('stock_list', category=cat) }}">
+            <span class="navlink-icon">{{ CATEGORY_ICONS.get(cat, '') }}</span>
+            <span class="navlink-text">{{ short }}</span>
+            {% if low %}<span class="nav-badge" title="{{ low }} позицій закінчується">{{ low }}</span>{% endif %}
+          </a>
+        {% endfor %}
+      {% endfor %}
+
+      <div class="navgroup"><span>🛠️</span>Інструменти</div>
+      <a class="navlink {{ 'active' if request.endpoint == 'customers_view' or request.endpoint == 'customer_detail' else '' }}" href="{{ url_for('customers_view') }}">
+        <span class="navlink-icon">👤</span><span class="navlink-text">Клієнти</span>
+      </a>
+      <a class="navlink {{ 'active' if request.endpoint == 'calculator_view' else '' }}" href="{{ url_for('calculator_view') }}">
+        <span class="navlink-icon">🧮</span><span class="navlink-text">Калькулятор перевзування</span>
+      </a>
+      {% if session.get('role') == 'admin' %}
+      <a class="navlink {{ 'active' if request.endpoint == 'brand_icons_view' else '' }}" href="{{ url_for('brand_icons_view') }}">
+        <span class="navlink-icon">🏷️</span><span class="navlink-text">Іконки брендів</span>
+      </a>
+      <a class="navlink {{ 'active' if request.endpoint == 'users_view' else '' }}" href="{{ url_for('users_view') }}">
+        <span class="navlink-icon">👥</span><span class="navlink-text">Користувачі</span>
+      </a>
+      {% endif %}
+      <a class="navlink {{ 'active' if request.endpoint == 'settings_view' else '' }}" href="{{ url_for('settings_view') }}">
+        <span class="navlink-icon">⚙️</span><span class="navlink-text">Налаштування</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user-card">
+        <div class="avatar-circle">{{ session.get('username', '?')[0]|upper }}</div>
+        <div class="sidebar-user-info">
+          <span class="user-badge">{{ session.get('username', '') }}</span>
+          <span class="role-badge role-{{ session.get('role') }}">{{ ROLE_LABELS.get(session.get('role'), session.get('role')) }}</span>
+        </div>
+        <a href="{{ url_for('logout') }}" class="logout-btn" title="Вийти">🚪</a>
+      </div>
+    </div>
+  </aside>
+  <main class="content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-wrap">
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script>
+(function () {
+  var toggle = document.getElementById('sidebar-toggle');
+  var overlay = document.getElementById('sidebar-overlay');
+  var sidebar = document.getElementById('sidebar');
+  function closeSidebar() { document.body.classList.remove('sidebar-open'); }
+  function openSidebar() { document.body.classList.add('sidebar-open'); }
+  if (toggle) toggle.addEventListener('click', function () {
+    document.body.classList.contains('sidebar-open') ? closeSidebar() : openSidebar();
+  });
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+  if (sidebar) sidebar.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', closeSidebar); });
+})();
+</script>
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+</body>
+</html>

@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}{{ CATEGORY_LABELS[category] }}{% endblock %}
+{% block content %}
+{% set cat_type = CATEGORY_TYPE[category] %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ CATEGORY_LABELS[category] }}</h1>
+    <div class="stock-summary muted">
+      Всього на складі: <b>{{ total_positions }}</b> позицій · <b>{{ total_quantity }}</b> шт.
+      <span id="shown-summary"></span>
+    </div>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-ghost" href="{{ url_for('export_stock_csv', category=category) }}">⬇️ Експорт CSV</a>
+    <a class="btn btn-ghost" href="{{ url_for('history_view', category=category) }}">🕘 Історія</a>
+    {% if session.get('role') == 'admin' %}
+    <a class="btn btn-ghost" href="{{ url_for('item_import', category=category) }}">📥 Імпорт</a>
+    <a class="btn btn-add" href="{{ url_for('item_add', category=category) }}">➕ Прихід</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="toolbar">
+  <input type="text" id="search-box" class="search-input" placeholder="🔍  Пошук по таблиці (бренд, модель...)" value="{{ request.args.get('q', '') }}">
+
+  {% if cat_type == 'tire' %}
+    <select id="filter-season" class="filter-select" data-attr="season">
+      <option value="">Сезон: всі</option>
+      {% for s in filter_options['season'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+    <select id="filter-size" class="filter-select" data-attr="size">
+      <option value="">Розмір: всі</option>
+      {% for s in filter_options['size'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+  {% elif cat_type == 'battery' %}
+    <select id="filter-transport_type" class="filter-select" data-attr="transport_type">
+      <option value="">Тип: всі</option>
+      {% for t in filter_options['transport_type'] %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+    </select>
+  {% else %}
+    <select id="filter-viscosity" class="filter-select" data-attr="viscosity">
+      <option value="">В'язкість: всі</option>
+      {% for v in filter_options['viscosity'] %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+    </select>
+    <select id="filter-base_type" class="filter-select" data-attr="base_type">
+      <option value="">Основа: всі</option>
+      {% for b in filter_options['base_type'] %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+    </select>
+  {% endif %}
+
+  <button type="button" id="filter-reset" class="btn btn-ghost btn-sm">Скинути фільтри</button>
+
+  {% if session.get('role') == 'admin' %}
+  <form class="threshold-form" method="post" action="{{ url_for('set_threshold', category=category) }}">
+    <label class="muted">Поріг «закінчується»:</label>
+    <input type="number" name="min_qty" min="0" value="{{ threshold }}" class="threshold-input">
+    <button type="submit" class="btn btn-ghost btn-sm">Зберегти</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if not items %}
+  <p class="muted">На складі немає позицій цієї категорії.</p>
+{% else %}
+<form method="post" action="{{ url_for('item_sell', category=category) }}" id="sell-form">
+<div class="table-wrap">
+<table class="data-table" id="stock-table">
+  <thead>
+    <tr>
+      <th class="col-check"></th>
+      <th class="col-brand sortable" data-sort="text">Бренд</th>
+      {% if cat_type == 'tire' %}
+        <th class="col-model sortable" data-sort="text">Модель</th>
+        <th class="col-size sortable" data-sort="text">Розмір</th>
+        <th class="col-season sortable" data-sort="text">Сезон</th>
+        <th class="col-lisi">LI/SI</th><th class="col-dot">DOT</th>
+      {% elif cat_type == 'battery' %}
+        <th class="sortable" data-sort="text">Тип</th><th class="sortable" data-sort="number">Ємність / Пусковий струм</th><th>Полярність</th><th>Корпус</th>
+      {% else %}
+        <th class="sortable" data-sort="text">Назва</th><th class="sortable" data-sort="text">В'язкість</th><th>Основа</th><th>Обʼєм</th>
+      {% endif %}
+      {% if session.get('role') == 'admin' %}
+      <th class="col-price sortable" data-sort="number">Собівартість</th>
+      <th class="col-price sortable" data-sort="number">Маржа</th>
+      {% endif %}
+      <th class="col-price sortable" data-sort="number">Ціна</th>
+      <th class="col-qty-val sortable" data-sort="number">На складі / доступно</th>
+      <th class="col-qty">Продати</th>
+      <th class="col-actions"></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item in items %}
+    {% set low = item['available_quantity'] <= threshold %}
+    <tr class="{{ 'row-low' if low else '' }}"
+        {% if item['color_tag'] %}style="border-left:4px solid {{ COLOR_TAG_HEX.get(item['color_tag'], item['color_tag']) }};"{% endif %}
+        {% if cat_type == 'tire' %}data-season="{{ item['season'] }}" data-size="{{ item['size'] }}"{% endif %}
+        {% if cat_type == 'battery' %}data-transport_type="{{ item['transport_type'] }}"{% endif %}
+        {% if cat_type == 'oil' %}data-viscosity="{{ item['viscosity'] }}" data-base_type="{{ item['base_type'] }}"{% endif %}
+        data-qty="{{ item['available_quantity'] }}">
+      <td class="col-check"><input type="checkbox" name="sell_{{ item['id'] }}" class="sell-check" {% if not item['available_quantity'] %}disabled{% endif %}></td>
+      <td>{{ brand_icon_html(item['brand'], brand_icons) }} {{ item['brand'] }}</td>
+      {% if cat_type == 'tire' %}
+        <td>{{ item['tread_model'] }}</td>
+        <td class="nowrap">{{ item['size'] }}</td>
+        <td>{{ item['season'] }}</td>
+        <td class="nowrap" title="{{ decode_li_si(item['load_index'], item['speed_index']) }}">
+          {{ item['load_index'] }}{% if item['speed_index'] %}/{{ item['speed_index'] }}{% endif %}
+          {% if decode_li_si(item['load_index'], item['speed_index']) %}<span class="hint">ℹ</span>{% endif %}
+        </td>
+        <td class="nowrap" title="{{ decode_dot_code(item['dot_code']) }}">
+          {{ item['dot_code'] }}
+          {% if decode_dot_code(item['dot_code']) %}<span class="hint">ℹ</span>{% endif %}
+        </td>
+      {% elif cat_type == 'battery' %}
+        <td>{{ item['transport_type'] }}</td>
+        <td class="nowrap">{{ format_number(item['capacity_ah']) }} Ah / {{ format_number(item['cold_crank_amps']) }} A</td>
+        <td>{{ item['polarity'] }}</td>
+        <td>{{ item['case_type'] }}</td>
+      {% else %}
+        <td>{{ item['title'] }}</td>
+        <td>{{ item['viscosity'] }}</td>
+        <td>{{ item['base_type'] }}</td>
+        <td>{{ item['volume'] }}</td>
+      {% endif %}
+      {% if session.get('role') == 'admin' %}
+      <td class="nowrap">{{ "%.0f"|format(item['cost_price']) }} ₴</td>
+      <td class="nowrap {{ 'margin-neg' if item['price'] - item['cost_price'] < 0 else '' }}">{{ "%.0f"|format(item['price'] - item['cost_price']) }} ₴</td>
+      {% endif %}
+      <td class="nowrap">{{ "%.0f"|format(item['price']) }} ₴</td>
+      <td class="{{ 'qty-low' if low else '' }}">{{ item['quantity'] }} / {{ item['available_quantity'] }}</td>
+      <td class="col-qty"><input type="number" name="qty_{{ item['id'] }}" min="1" max="{{ item['available_quantity'] }}" value="1" class="qty-input" disabled></td>
+      <td class="col-actions">
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('item_edit', category=category, item_id=item['id']) }}" title="Редагувати">✏️</a>
+        <form method="post" action="{{ url_for('item_delete', category=category, item_id=item['id']) }}" class="inline-form" onsubmit="return confirm('Видалити цю позицію зі складу?');">
+          <button type="submit" class="link-danger" title="Видалити">🗑</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="sell-bar">
+  <input type="text" name="customer" list="customer-list" placeholder="Кому продано (необов'язково)" class="customer-input">
+  <datalist id="customer-list">
+    {% for name in customer_names %}<option value="{{ name }}">{% endfor %}
+  </datalist>
+  <button type="submit" class="btn btn-sell">➖ Продати вибрані</button>
+</div>
+</form>
+{% endif %}
+
+<script>
+(function () {
+  var searchBox = document.getElementById('search-box');
+  var resetBtn = document.getElementById('filter-reset');
+  var filterSelects = Array.prototype.slice.call(document.querySelectorAll('.filter-select'));
+  var rows = Array.prototype.slice.call(document.querySelectorAll('#stock-table tbody tr'));
+  var shownSummary = document.getElementById('shown-summary');
+
+  function applyFilters() {
+    var q = (searchBox ? searchBox.value : '').trim().toLowerCase();
+    var activeFilters = filterSelects.map(function (sel) {
+      return { attr: sel.dataset.attr, value: sel.value };
+    }).filter(function (f) { return f.value !== ''; });
+
+    var shownCount = 0, shownQty = 0;
+    rows.forEach(function (row) {
+      var matchesText = !q || row.textContent.toLowerCase().includes(q);
+      var matchesFilters = activeFilters.every(function (f) {
+        return row.getAttribute('data-' + f.attr) === f.value;
+      });
+      var visible = matchesText && matchesFilters;
+      row.style.display = visible ? '' : 'none';
+      if (visible) {
+        shownCount += 1;
+        shownQty += parseInt(row.getAttribute('data-qty') || '0', 10);
+      }
+    });
+
+    if (shownSummary) {
+      var totalRows = rows.length;
+      shownSummary.textContent = (q || activeFilters.length)
+        ? (' · Показано: ' + shownCount + ' із ' + totalRows + ' (' + shownQty + ' шт)')
+        : '';
+    }
+  }
+
+  if (searchBox) searchBox.addEventListener('input', applyFilters);
+  filterSelects.forEach(function (sel) { sel.addEventListener('change', applyFilters); });
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function () {
+      if (searchBox) searchBox.value = '';
+      filterSelects.forEach(function (sel) { sel.value = ''; });
+      applyFilters();
+    });
+  }
+  applyFilters();
+
+  // Поле кількості активне лише коли позначено чекбокс
+  document.querySelectorAll('.sell-check').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      var qtyInput = this.closest('tr').querySelector('.qty-input');
+      qtyInput.disabled = !this.checked || Number(qtyInput.max) < 1;
+    });
+  });
+})();
+
+// Сортування по кліку на заголовок колонки
+(function () {
+  var table = document.getElementById('stock-table');
+  if (!table) return;
+  var headers = table.querySelectorAll('th.sortable');
+  headers.forEach(function (th) {
+    th.addEventListener('click', function () {
+      var index = Array.prototype.indexOf.call(th.parentNode.children, th);
+      var type = th.dataset.sort;
+      var asc = th.dataset.order !== 'asc';
+      headers.forEach(function (h) { h.removeAttribute('data-order'); h.classList.remove('sort-asc', 'sort-desc'); });
+      th.dataset.order = asc ? 'asc' : 'desc';
+      th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+      var tbody = table.querySelector('tbody');
+      var rowsArr = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+      rowsArr.sort(function (a, b) {
+        var av = a.children[index] ? a.children[index].textContent.trim() : '';
+        var bv = b.children[index] ? b.children[index].textContent.trim() : '';
+        if (type === 'number') {
+          var an = parseFloat(av.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+          var bn = parseFloat(bv.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+          return asc ? an - bn : bn - an;
+        }
+        return asc ? av.localeCompare(bv, 'uk') : bv.localeCompare(av, 'uk');
+      });
+      rowsArr.forEach(function (row) { tbody.appendChild(row); });
+    });
+  });
+})();
+</script>
+{% endblock %}
