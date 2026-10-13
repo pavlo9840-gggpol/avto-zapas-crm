@@ -59,6 +59,9 @@
       <a class="navlink {{ 'active' if request.endpoint == 'calculator_view' else '' }}" href="{{ url_for('calculator_view') }}">
         <span class="navlink-icon">🧮</span><span class="navlink-text">Калькулятор перевзування</span>
       </a>
+      <a class="navlink {{ 'active' if request.endpoint == 'battery_calculator_view' else '' }}" href="{{ url_for('battery_calculator_view') }}">
+        <span class="navlink-icon">🔋</span><span class="navlink-text">Підбір акумулятора</span>
+      </a>
       {% if session.get('role') == 'admin' %}
       <a class="navlink {{ 'active' if request.endpoint == 'brand_icons_view' else '' }}" href="{{ url_for('brand_icons_view') }}">
         <span class="navlink-icon">🏷️</span><span class="navlink-text">Іконки брендів</span>

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Підбір акумулятора{% endblock %}
+{% block content %}
+<h1 class="page-title">🔋 Підбір акумулятора</h1>
+<p class="muted calculator-intro">
+  Введіть мінімальні параметри зі старого акумулятора або документації автомобіля.
+  Покажемо сумісні моделі, які є в наявності, та відсортуємо за найближчими характеристиками.
+</p>
+
+<form method="get" class="battery-calc-form">
+  <input type="hidden" name="search" value="1">
+  <label class="calc-field">
+    <span>Для якої техніки</span>
+    <select name="transport_type">
+      <option value="">Будь-який тип</option>
+      {% for type in transport_types %}<option value="{{ type }}" {{ 'selected' if form['transport_type'] == type else '' }}>{{ type }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="calc-field">
+    <span>Мінімальна ємність</span>
+    <div class="battery-input-unit"><input type="number" name="capacity_ah" min="0" max="10000" step="0.1" value="{{ form['capacity_ah'] }}" placeholder="напр. 60"><span>Ah</span></div>
+  </label>
+  <label class="calc-field">
+    <span>Мінімальний пусковий струм</span>
+    <div class="battery-input-unit"><input type="number" name="cold_crank_amps" min="0" max="10000" step="1" value="{{ form['cold_crank_amps'] }}" placeholder="напр. 600"><span>A</span></div>
+  </label>
+  <label class="calc-field">
+    <span>Полярність</span>
+    <select name="polarity">
+      <option value="">Будь-яка</option>
+      {% for polarity in polarity_options %}<option value="{{ polarity }}" {{ 'selected' if form['polarity'] == polarity else '' }}>{{ polarity }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="calc-field">
+    <span>Корпус</span>
+    <select name="case_type">
+      <option value="">Будь-який корпус</option>
+      {% for case in case_types %}<option value="{{ case }}" {{ 'selected' if form['case_type'] == case else '' }}>{{ case }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="btn btn-add calc-submit">Знайти акумулятори</button>
+</form>
+
+<div class="battery-tip panel">
+  <strong>Порада:</strong> ємність і пусковий струм не мають бути нижчими за вимоги виробника.
+  Перед продажем обов'язково звірте габарити корпуса, розташування клем і полярність.
+</div>
+
+{% if errors %}
+  <div class="flash-wrap">
+    {% for error in errors %}<div class="flash flash-error">{{ error }}</div>{% endfor %}
+  </div>
+{% elif searched %}
+  {% if matches %}
+    <div class="battery-results-head">
+      <h2>Підходящі акумулятори</h2>
+      <span class="muted">{{ matches|length }} в наявності · спочатку найближчі параметри</span>
+    </div>
+    <div class="battery-result-grid">
+      {% for item in matches %}
+      <article class="battery-result-card {{ 'battery-result-best' if loop.first else '' }}">
+        {% if loop.first %}<span class="battery-best-badge">⭐ Найближчий підбір</span>{% endif %}
+        <span class="cash-product-category">{{ CATEGORY_LABELS[item['category']] }}{% if item['transport_type'] %} · {{ item['transport_type'] }}{% endif %}</span>
+        <h2>{{ item_label(item['category'], item) }}</h2>
+        <div class="battery-spec-grid">
+          <div><span>Ємність</span><strong>{{ format_number(item['capacity_ah']) }} Ah</strong></div>
+          <div><span>Пусковий струм</span><strong>{{ format_number(item['cold_crank_amps']) }} A</strong></div>
+          <div><span>Полярність</span><strong>{{ item['polarity'] or '—' }}</strong></div>
+          <div><span>Корпус</span><strong>{{ item['case_type'] or '—' }}</strong></div>
+        </div>
+        <div class="battery-result-bottom">
+          <strong>{{ "%.2f"|format(item['price']) }} ₴</strong>
+          <span class="muted">На складі: {{ item['available_quantity'] }} шт.</span>
+        </div>
+        <div class="battery-result-actions">
+          <a class="btn btn-add btn-sm" href="{{ url_for('cash_view', add=item['id']) }}">➕ Додати в касу</a>
+          <a class="btn btn-ghost btn-sm" href="{{ url_for('stock_list', category=item['category']) }}?q={{ item['brand']|urlencode }}">Склад</a>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="panel battery-no-match">
+      <h2>Не знайшли точного підбору</h2>
+      <p class="muted">У наявності немає акумуляторів, що відповідають усім указаним мінімальним параметрам. Спробуйте змінити фільтри або перевірте склад.</p>
+      <a class="btn btn-ghost" href="{{ url_for('stock_list', category='battery_car') }}">Перейти до акумуляторів →</a>
+    </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

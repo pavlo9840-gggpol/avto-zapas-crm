@@ -2,46 +2,46 @@
 {% block title %}Калькулятор перевзування{% endblock %}
 {% block content %}
 <h1 class="page-title">🧮 Калькулятор перевзування</h1>
-<p class="muted" style="max-width:640px;margin-top:-8px;">
-  Порівнює загальний зовнішній діаметр двох розмірів шин (напр. штатного і того,
-  що є в наявності або хоче клієнт) і показує, чи безпечно замінити один на інший
-  (загальноприйняте правило — різниця діаметра не більше ±3%).
+<p class="muted calculator-intro">
+  Порівняйте заводський і альтернативний розмір. Перевірте різницю зовнішнього
+  діаметра, кліренсу та показань спідометра. Для точного підбору звіряйтеся з
+  рекомендаціями виробника автомобіля.
 </p>
 
 <form method="get" class="calc-form">
   <div class="calc-col">
-    <h2>Розмір 1 (штатний)</h2>
+    <h2><span>1</span> Штатний розмір</h2>
     <div class="row-3">
-      <select name="w1">
+      <label class="calc-field"><span>Ширина</span><select name="w1">
         {% for w in car_widths %}<option value="{{ w }}" {{ 'selected' if form['w1']|string == w|string else '' }}>{{ w }}</option>{% endfor %}
-      </select>
-      <select name="p1">
+      </select></label>
+      <label class="calc-field"><span>Профіль</span><select name="p1">
         {% for p in car_profiles %}<option value="{{ p }}" {{ 'selected' if form['p1']|string == p|string else '' }}>{{ p }}</option>{% endfor %}
-      </select>
-      <select name="d1">
+      </select></label>
+      <label class="calc-field"><span>Діаметр</span><select name="d1">
         {% for d in car_diameter_inches %}<option value="{{ d }}" {{ 'selected' if form['d1']|string == d|string else '' }}>R{{ d }}</option>{% endfor %}
-      </select>
+      </select></label>
     </div>
   </div>
 
-  <div class="calc-arrow">→</div>
+  <div class="calc-arrow" aria-hidden="true">→</div>
 
   <div class="calc-col">
-    <h2>Розмір 2 (новий)</h2>
+    <h2><span>2</span> Новий розмір</h2>
     <div class="row-3">
-      <select name="w2">
+      <label class="calc-field"><span>Ширина</span><select name="w2">
         {% for w in car_widths %}<option value="{{ w }}" {{ 'selected' if form['w2']|string == w|string else '' }}>{{ w }}</option>{% endfor %}
-      </select>
-      <select name="p2">
+      </select></label>
+      <label class="calc-field"><span>Профіль</span><select name="p2">
         {% for p in car_profiles %}<option value="{{ p }}" {{ 'selected' if form['p2']|string == p|string else '' }}>{{ p }}</option>{% endfor %}
-      </select>
-      <select name="d2">
+      </select></label>
+      <label class="calc-field"><span>Діаметр</span><select name="d2">
         {% for d in car_diameter_inches %}<option value="{{ d }}" {{ 'selected' if form['d2']|string == d|string else '' }}>R{{ d }}</option>{% endfor %}
-      </select>
+      </select></label>
     </div>
   </div>
 
-  <button type="submit" class="btn btn-add calc-submit">Порівняти</button>
+  <button type="submit" class="btn btn-add calc-submit">Порівняти розміри →</button>
 </form>
 
 {% if result %}
@@ -55,7 +55,7 @@
     <tr><td>Обертів на 1 км (1 / 2)</td><td>{{ result.rev_per_km1 }} / {{ result.rev_per_km2 }}</td></tr>
     <tr><td>Похибка спідометра</td><td>{{ result.speedo_error_percent }} %</td></tr>
   </table>
-  <p class="muted" style="margin-top:10px;">
+  <p class="muted calc-result-note">
     {% if result.is_safe %}
       Різниця в межах допустимих ±3% — можна ставити без суттєвого впливу на спідометр і кліренс.
     {% else %}
@@ -63,6 +63,11 @@
       і може зачіпати елементи кузова/підвіски — варто уточнити сумісність з виробником авто.
     {% endif %}
   </p>
+  <div class="calc-difference">
+    <span>Зміна кліренсу</span>
+    <strong>{{ "%.1f"|format((result.diameter2 - result.diameter1) / 2) }} мм</strong>
+  </div>
+  <p class="muted calc-disclaimer">Розрахунок порівнює геометричні розміри. Він не перевіряє фактичний зазор до кузова, гальм чи підвіски.</p>
   <a class="btn btn-ghost" href="{{ url_for('stock_list', category='car') }}">🔍 Пошук цього розміру на складі</a>
 </div>
 {% endif %}

@@ -16,6 +16,7 @@
       <input type="search" id="cash-search" class="cash-search" placeholder="Введіть назву, бренд, розмір або в'язкість" autocomplete="off" autofocus>
       <button type="button" id="cash-search-clear" class="cash-search-clear" aria-label="Очистити пошук" hidden>×</button>
     </label>
+    <p class="cash-search-hint muted">Шукайте за назвою чи розміром або відскануйте штрихкод. Якщо знайдено один товар — натисніть Enter.</p>
 
     <nav class="cash-categories" aria-label="Категорії товарів">
       <button type="button" class="cash-category active" data-group="all">Усі товари</button>
@@ -223,16 +224,21 @@
     }
   }
 
+  function addToCart(card) {
+    if (!card || Number(card.dataset.available) < 1) return;
+    var checkbox = card.querySelector('.cash-check');
+    var quantity = card.querySelector('.cash-qty');
+    if (!checkbox.checked) {
+      checkbox.checked = true;
+    } else {
+      quantity.value = Math.min(Number(card.dataset.available), Number(quantity.value) + 1);
+    }
+    updateCart();
+  }
+
   cards.forEach(function (card) {
     card.querySelector('.cash-add').addEventListener('click', function () {
-      var checkbox = card.querySelector('.cash-check');
-      if (!checkbox.checked) {
-        checkbox.checked = true;
-      } else {
-        var quantity = card.querySelector('.cash-qty');
-        quantity.value = Math.min(Number(card.dataset.available), Number(quantity.value) + 1);
-      }
-      updateCart();
+      addToCart(card);
     });
   });
 
@@ -247,6 +253,12 @@
   });
 
   search.addEventListener('input', updateProducts);
+  search.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    var visibleCards = cards.filter(function (card) { return !card.hidden && Number(card.dataset.available) > 0; });
+    if (visibleCards.length === 1) addToCart(visibleCards[0]);
+  });
   clearSearch.addEventListener('click', function () {
     search.value = '';
     updateProducts();
@@ -282,6 +294,11 @@
 
   updateProducts();
   updateCart();
+  var requestedItemId = new URLSearchParams(window.location.search).get('add');
+  if (requestedItemId) {
+    var requestedCard = cards.find(function (card) { return card.dataset.id === requestedItemId; });
+    addToCart(requestedCard);
+  }
 })();
 </script>
 {% endblock %}

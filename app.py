@@ -1657,18 +1657,99 @@ def brand_icon_remove():
 def calculator_view():
     result = None
     form = {k: request.args.get(k, "") for k in ("w1", "p1", "d1", "w2", "p2", "d2")}
+    diameter_inches = sorted({int(d[1:]) for d in CAR_DIAMETERS if d[1:].isdigit()})
     if all(form.values()):
         try:
+            values = {key: int(value) for key, value in form.items()}
+            if (
+                values["w1"] not in CAR_WIDTHS or values["w2"] not in CAR_WIDTHS
+                or values["p1"] not in CAR_PROFILES or values["p2"] not in CAR_PROFILES
+                or values["d1"] not in diameter_inches or values["d2"] not in diameter_inches
+            ):
+                raise ValueError
             result = compare_tire_sizes(
-                float(form["w1"]), float(form["p1"]), float(form["d1"]),
-                float(form["w2"]), float(form["p2"]), float(form["d2"]),
+                values["w1"], values["p1"], values["d1"],
+                values["w2"], values["p2"], values["d2"],
             )
         except ValueError:
             flash("Некоректні значення розмірів.", "error")
     return render_template(
         "calculator.html", form=form, result=result,
         car_widths=CAR_WIDTHS, car_profiles=CAR_PROFILES,
-        car_diameter_inches=[int(d[1:]) for d in CAR_DIAMETERS],
+        car_diameter_inches=diameter_inches,
+    )
+
+
+@app.route("/battery-calculator")
+@login_required
+def battery_calculator_view():
+    form = {
+        "transport_type": (request.args.get("transport_type", "") or "").strip(),
+        "capacity_ah": (request.args.get("capacity_ah", "") or "").strip(),
+        "cold_crank_amps": (request.args.get("cold_crank_amps", "") or "").strip(),
+        "polarity": (request.args.get("polarity", "") or "").strip(),
+        "case_type": (request.args.get("case_type", "") or "").strip(),
+    }
+    searched = request.args.get("search") == "1"
+    matches = []
+    errors = []
+    capacity_target = crank_target = 0.0
+
+    if searched:
+        for field, label in (("capacity_ah", "ємність"), ("cold_crank_amps", "пусковий струм")):
+            raw_value = form[field].replace(",", ".")
+            try:
+                value = float(raw_value) if raw_value else 0.0
+            except ValueError:
+                errors.append(f"Вкажіть коректну мінімальну {label}.")
+                continue
+            if not math.isfinite(value) or value < 0 or value > 10000:
+                errors.append(f"Мінімальна {label} має бути числом від 0 до 10000.")
+                continue
+            if field == "capacity_ah":
+                capacity_target = value
+            else:
+                crank_target = value
+
+        if form["transport_type"] and form["transport_type"] not in BATTERY_TRANSPORT_TYPES:
+            errors.append("Виберіть тип техніки зі списку.")
+        if form["polarity"] and form["polarity"] not in BATTERY_POLARITY_OPTIONS:
+            errors.append("Виберіть полярність зі списку.")
+        if form["case_type"] and form["case_type"] not in BATTERY_CASE_TYPES:
+            errors.append("Виберіть типорозмір корпусу зі списку.")
+
+        if not errors:
+            db = dbmod.get_db()
+            rows = db.execute(
+                "SELECT si.*, si.quantity - COALESCE((SELECT SUM(r.quantity) FROM reservations r "
+                "WHERE r.item_id = si.id AND r.status = 'active'), 0) AS available_quantity "
+                "FROM stock_items si WHERE si.category IN (?, ?) "
+                "ORDER BY si.capacity_ah, si.cold_crank_amps, si.price",
+                ("battery_car", "battery_moto"),
+            ).fetchall()
+            for item in rows:
+                if item["available_quantity"] <= 0:
+                    continue
+                if item["capacity_ah"] < capacity_target or item["cold_crank_amps"] < crank_target:
+                    continue
+                if form["transport_type"] and item["transport_type"] != form["transport_type"]:
+                    continue
+                if form["polarity"] and item["polarity"] != form["polarity"]:
+                    continue
+                if form["case_type"] and item["case_type"] != form["case_type"]:
+                    continue
+                matches.append(item)
+            matches.sort(key=lambda item: (
+                item["capacity_ah"] - capacity_target,
+                item["cold_crank_amps"] - crank_target,
+                item["price"],
+            ))
+
+    return render_template(
+        "battery_calculator.html", form=form, searched=searched, matches=matches, errors=errors,
+        transport_types=BATTERY_TRANSPORT_TYPES,
+        polarity_options=BATTERY_POLARITY_OPTIONS,
+        case_types=BATTERY_CASE_TYPES, item_label=_item_label,
     )
 
 
