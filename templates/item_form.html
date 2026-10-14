@@ -5,7 +5,7 @@
 
 <form method="post" class="item-form">
   <label>Бренд</label>
-  <input type="text" name="brand" list="brand-list" value="{{ item['brand'] if item else '' }}" required>
+  <input type="text" name="brand" list="brand-list" value="{{ item['brand'] if item else '' }}" {{ 'required' if cat_type != 'other' else '' }}>
   <datalist id="brand-list">
     {% for b in brands %}<option value="{{ b }}">{% endfor %}
   </datalist>
@@ -82,7 +82,7 @@
       {% for c in case_types %}<option value="{{ c }}" {{ 'selected' if item and item['case_type'] == c else '' }}>{{ c }}</option>{% endfor %}
     </select>
 
-  {% else %}
+  {% elif cat_type == 'oil' %}
     <label>Назва (необов'язково)</label>
     <input type="text" name="title" value="{{ item['title'] if item else '' }}">
 
@@ -101,6 +101,15 @@
     <select name="volume">
       {% for v in volumes %}<option value="{{ v }}" {{ 'selected' if item and item['volume'] == v else '' }}>{{ v }}</option>{% endfor %}
     </select>
+  {% else %}
+    <label>Назва товару</label>
+    <input type="text" name="title" value="{{ item['title'] if item else '' }}" required>
+
+    <label>Артикул виробника / магазину <span class="muted">(необов'язково, але спрощує пошук і зв'язування аналогів)</span></label>
+    <input type="text" name="article" value="{{ item['article'] if item else '' }}">
+
+    <label>Опис або примітка <span class="muted">(необов'язково)</span></label>
+    <textarea name="description" rows="3">{{ item['description'] if item else '' }}</textarea>
   {% endif %}
 
   <label>Кольорова мітка (необов'язково)</label>

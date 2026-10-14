@@ -39,36 +39,63 @@
         <span class="navlink-icon">📈</span><span class="navlink-text">Звіти</span>
       </a>
 
-      {% for group_name, cats in CATEGORY_GROUPS %}
-        <div class="navgroup"><span>{{ GROUP_ICONS.get(group_name, '') }}</span>{{ group_name }}</div>
-        {% for cat, short in cats %}
-          {% set low = nav_low_stock.get(cat, 0) %}
-          <a class="navlink {{ 'active' if request.view_args and request.view_args.get('category') == cat else '' }}"
-             href="{{ url_for('stock_list', category=cat) }}">
-            <span class="navlink-icon">{{ CATEGORY_ICONS.get(cat, '') }}</span>
-            <span class="navlink-text">{{ short }}</span>
-            {% if low %}<span class="nav-badge" title="{{ low }} позицій закінчується">{{ low }}</span>{% endif %}
-          </a>
-        {% endfor %}
+      {% set stock_categories = namespace(values=[]) %}
+      {% for group_key, group_label, group_icon, group_categories in PRODUCT_GROUPS %}
+        {% set stock_categories.values = stock_categories.values + (group_categories|list) %}
       {% endfor %}
+      {% set stock_active = request.view_args and request.view_args.get('category') in stock_categories.values %}
+      <details class="nav-accordion" {{ 'open' if stock_active else '' }}>
+        <summary class="navlink {{ 'active' if request.endpoint == 'products_view' or stock_active else '' }}">
+          <span class="navlink-icon">📦</span><span class="navlink-text">Товари</span><span class="nav-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="nav-submenu">
+          <a class="navlink nav-sub-overview {{ 'active' if request.endpoint == 'products_view' else '' }}" href="{{ url_for('products_view') }}">
+            <span class="navlink-icon">▦</span><span class="navlink-text">Усі товари</span>
+          </a>
+          {% for group_key, group_label, group_icon, group_categories in PRODUCT_GROUPS %}
+            {% set group_low = namespace(count=0) %}
+            {% for cat in group_categories %}{% set group_low.count = group_low.count + nav_low_stock.get(cat, 0) %}{% endfor %}
+            <a class="navlink {{ 'active' if (request.view_args and request.view_args.get('category') in group_categories) or (request.endpoint == 'products_view' and request.args.get('group') == group_key) else '' }}"
+               href="{{ url_for('products_view', group=group_key) }}">
+              <span class="navlink-icon">{{ group_icon }}</span><span class="navlink-text">{{ group_label }}</span>
+              {% if group_low.count %}<span class="nav-badge" title="{{ group_low.count }} позицій закінчується">{{ group_low.count }}</span>{% endif %}
+            </a>
+          {% endfor %}
+        </div>
+      </details>
 
-      <div class="navgroup"><span>🛠️</span>Інструменти</div>
-      <a class="navlink {{ 'active' if request.endpoint == 'customers_view' or request.endpoint == 'customer_detail' else '' }}" href="{{ url_for('customers_view') }}">
-        <span class="navlink-icon">👤</span><span class="navlink-text">Клієнти</span>
-      </a>
-      <a class="navlink {{ 'active' if request.endpoint == 'calculator_view' else '' }}" href="{{ url_for('calculator_view') }}">
-        <span class="navlink-icon">🧮</span><span class="navlink-text">Калькулятор перевзування</span>
-      </a>
-      <a class="navlink {{ 'active' if request.endpoint == 'battery_calculator_view' else '' }}" href="{{ url_for('battery_calculator_view') }}">
-        <span class="navlink-icon">🔋</span><span class="navlink-text">Підбір акумулятора</span>
-      </a>
+      {% set tools_active = request.endpoint in ('customers_view', 'customer_detail', 'calculator_view', 'battery_calculator_view') %}
+      <details class="nav-accordion" {{ 'open' if tools_active else '' }}>
+        <summary class="navlink {{ 'active' if tools_active else '' }}">
+          <span class="navlink-icon">🛠️</span><span class="navlink-text">Інструменти</span><span class="nav-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="nav-submenu">
+          <a class="navlink {{ 'active' if request.endpoint in ('customers_view', 'customer_detail') else '' }}" href="{{ url_for('customers_view') }}">
+            <span class="navlink-icon">👤</span><span class="navlink-text">Клієнти</span>
+          </a>
+          <a class="navlink {{ 'active' if request.endpoint == 'calculator_view' else '' }}" href="{{ url_for('calculator_view') }}">
+            <span class="navlink-icon">🧮</span><span class="navlink-text">Калькулятор шин</span>
+          </a>
+          <a class="navlink {{ 'active' if request.endpoint == 'battery_calculator_view' else '' }}" href="{{ url_for('battery_calculator_view') }}">
+            <span class="navlink-icon">🔋</span><span class="navlink-text">Підбір акумулятора</span>
+          </a>
+        </div>
+      </details>
       {% if session.get('role') == 'admin' %}
-      <a class="navlink {{ 'active' if request.endpoint == 'brand_icons_view' else '' }}" href="{{ url_for('brand_icons_view') }}">
-        <span class="navlink-icon">🏷️</span><span class="navlink-text">Іконки брендів</span>
-      </a>
-      <a class="navlink {{ 'active' if request.endpoint == 'users_view' else '' }}" href="{{ url_for('users_view') }}">
-        <span class="navlink-icon">👥</span><span class="navlink-text">Користувачі</span>
-      </a>
+      {% set admin_active = request.endpoint in ('brand_icons_view', 'users_view') %}
+      <details class="nav-accordion" {{ 'open' if admin_active else '' }}>
+        <summary class="navlink {{ 'active' if admin_active else '' }}">
+          <span class="navlink-icon">🛡️</span><span class="navlink-text">Адміністрування</span><span class="nav-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="nav-submenu">
+          <a class="navlink {{ 'active' if request.endpoint == 'brand_icons_view' else '' }}" href="{{ url_for('brand_icons_view') }}">
+            <span class="navlink-icon">🏷️</span><span class="navlink-text">Іконки брендів</span>
+          </a>
+          <a class="navlink {{ 'active' if request.endpoint == 'users_view' else '' }}" href="{{ url_for('users_view') }}">
+            <span class="navlink-icon">👥</span><span class="navlink-text">Користувачі</span>
+          </a>
+        </div>
+      </details>
       {% endif %}
       <a class="navlink {{ 'active' if request.endpoint == 'settings_view' else '' }}" href="{{ url_for('settings_view') }}">
         <span class="navlink-icon">⚙️</span><span class="navlink-text">Налаштування</span>

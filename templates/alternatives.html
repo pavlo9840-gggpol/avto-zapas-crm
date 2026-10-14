@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Аналоги · {{ CATEGORY_LABELS[category] }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">🔗 Перевірені аналоги та заміни</h1>
+    <p class="muted alternatives-source">{{ CATEGORY_LABELS[category] }} · {{ item_label(category, item) }}</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('stock_list', category=category) }}">← До товарів</a>
+</div>
+
+<div class="alternatives-disclaimer">
+  <strong>Важливо:</strong> ці зв'язки додає ваш магазин вручну. CRM не перевіряє автоматичну сумісність із конкретним авто — перед продажем звірте специфікацію та маркування.
+</div>
+
+{% if alternatives %}
+<div class="alternatives-list">
+  {% for alternative in alternatives %}
+  <article class="alternative-card">
+    <div class="alternative-card-copy">
+      <span class="cash-product-category">{{ CATEGORY_LABELS[alternative['alternative_category']] }}</span>
+      <h2>{{ item_label(alternative['alternative_category'], alternative) }}</h2>
+      {% if alternative['article'] %}<p class="muted">Артикул: {{ alternative['article'] }}</p>{% endif %}
+      <span class="alternative-type alternative-type-{{ alternative['relation_type'] }}">{{ ALTERNATIVE_TYPE_LABELS.get(alternative['relation_type'], alternative['relation_type']) }}</span>
+      {% if alternative['notes'] %}<p class="alternative-notes">{{ alternative['notes'] }}</p>{% endif %}
+    </div>
+    <div class="alternative-stock">
+      <strong>{{ "%.2f"|format(alternative['price']) }} ₴</strong>
+      <span class="muted">У наявності: {{ alternative['available_quantity'] }} шт.</span>
+    </div>
+    <div class="alternative-actions">
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('stock_list', category=alternative['alternative_category']) }}">Відкрити склад</a>
+      {% if session.get('role') == 'admin' %}
+      <form method="post" action="{{ url_for('item_alternative_delete', category=category, item_id=item['id'], relation_id=alternative['relation_id']) }}" onsubmit="return confirm('Видалити зв’язок аналогів?');">
+        <button class="btn btn-ghost btn-sm" type="submit">Видалити зв’язок</button>
+      </form>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="panel alternatives-empty">
+  <h2>Для цього товару ще не додано аналогів</h2>
+  <p class="muted">Зв'яжіть позиції, сумісність яких магазин перевірив вручну.</p>
+</div>
+{% endif %}
+
+{% if session.get('role') == 'admin' %}
+<section class="panel alternatives-manage">
+  <div class="page-head">
+    <div><h2>Додати перевірений аналог</h2><p class="muted">Зв'язок буде видно на сторінках обох товарів.</p></div>
+    <div class="page-actions">
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('alternatives_export', category=category, item_id=item['id']) }}">⬇️ CSV</a>
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('alternatives_import', category=category, item_id=item['id']) }}">📥 Імпорт CSV</a>
+    </div>
+  </div>
+  {% if candidates %}
+  <form method="post" class="alternatives-form">
+    <label class="calc-field">
+      <span>Товар на вашому складі</span>
+      <select name="alternative_item_id" required>
+        <option value="">Виберіть товар…</option>
+        {% for candidate in candidates %}
+        <option value="{{ candidate['id'] }}">{{ CATEGORY_LABELS[candidate['category']] }} · {{ candidate['label'] }} · {{ candidate['available_quantity'] }} шт.</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="calc-field">
+      <span>Тип зв'язку</span>
+      <select name="relation_type" required>
+        {% for type_key, type_label in ALTERNATIVE_TYPES %}
+        <option value="{{ type_key }}">{{ type_label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="calc-field alternatives-notes-field">
+      <span>Примітка для продавця (необов'язково)</span>
+      <input name="notes" maxlength="500" placeholder="Наприклад: перевірено за розміром і кріпленням">
+    </label>
+    <button class="btn btn-add" type="submit">Зберегти зв'язок</button>
+  </form>
+  {% else %}
+  <p class="muted">Додайте на склад ще хоча б один товар, щоб створити зв'язок.</p>
+  {% endif %}
+  <p class="muted alternatives-import-note">CSV допомагає зберігати й переносити вручну перевірений список аналогів між файлами. Це не автомобільний каталог і не автоматична перевірка сумісності.</p>
+</section>
+{% endif %}
+{% endblock %}

@@ -30,7 +30,8 @@ except ImportError:
 import db as dbmod
 from constants import (
     ALL_CATEGORIES, CATEGORY_LABELS, CATEGORY_TYPE, CATEGORY_GROUPS,
-    CATEGORY_ICONS, GROUP_ICONS,
+    CATEGORY_ICONS, GROUP_ICONS, PRODUCT_GROUPS, ALTERNATIVE_TYPES,
+    ALTERNATIVE_TYPE_LABELS, CATEGORY_OTHER,
     SEASONS, CAR_WIDTHS, CAR_PROFILES, CAR_DIAMETERS, MOTO_SIZES, TIRE_BRANDS,
     LOAD_INDEXES, SPEED_INDEXES, LOAD_INDEX_TABLE, SPEED_INDEX_TABLE,
     BATTERY_BRANDS, BATTERY_TRANSPORT_TYPES,
@@ -59,6 +60,11 @@ IMPORT_COLUMNS = {
         ("Бренд", "brand"), ("Назва", "title"), ("В'язкість", "viscosity"), ("Основа", "base_type"),
         ("Обʼєм", "volume"), ("Мітка", "color_tag"), ("Собівартість", "cost_price"),
         ("Ціна", "price"), ("Кількість", "quantity"),
+    ],
+    "other": [
+        ("Бренд", "brand"), ("Назва", "title"), ("Артикул", "article"),
+        ("Опис", "description"), ("Мітка", "color_tag"),
+        ("Собівартість", "cost_price"), ("Ціна", "price"), ("Кількість", "quantity"),
     ],
 }
 
@@ -175,7 +181,22 @@ def _initialize_demo_database():
                 database.execute(
                     "INSERT INTO sales (sale_id, received, change_amount) VALUES ('DEMO-SALE-2', 2000, 10)"
                 )
-                database.commit()
+            if database.execute("SELECT COUNT(*) FROM stock_items WHERE category = 'other'").fetchone()[0] == 0:
+                other = {
+                    "category": CATEGORY_OTHER, "brand": "Bosch", "title": "Щітки склоочисника",
+                    "article": "AEROTWIN-600-450", "description": "Комплект передніх щіток, довжина 600/450 мм",
+                    "cost_price": 680, "price": 990, "quantity": 5,
+                }
+                fields = tuple(other)
+                database.execute(
+                    f"INSERT INTO stock_items ({', '.join(fields)}) VALUES ({', '.join('?' for _ in fields)})",
+                    tuple(other[field] for field in fields),
+                )
+                if database.execute(
+                    "SELECT COUNT(*) FROM thresholds WHERE category = ?", (CATEGORY_OTHER,)
+                ).fetchone()[0] == 0:
+                    database.execute("INSERT INTO thresholds (category, min_qty) VALUES (?, 3)", (CATEGORY_OTHER,))
+            database.commit()
     finally:
         app.config["DB_PATH"] = main_db_path
 
@@ -186,12 +207,17 @@ TIRE_KEY_FIELDS = ("brand", "size", "season", "dot_code", "tread_model", "load_i
 BATTERY_KEY_FIELDS = ("brand", "transport_type", "capacity_ah", "cold_crank_amps", "polarity", "case_type")
 OIL_KEY_FIELDS = ("brand", "title", "viscosity", "base_type", "volume")
 
-KEY_FIELDS_BY_TYPE = {"tire": TIRE_KEY_FIELDS, "battery": BATTERY_KEY_FIELDS, "oil": OIL_KEY_FIELDS}
+KEY_FIELDS_BY_TYPE = {
+    "tire": TIRE_KEY_FIELDS,
+    "battery": BATTERY_KEY_FIELDS,
+    "oil": OIL_KEY_FIELDS,
+    "other": ("brand", "article", "title"),
+}
 
 ALL_FIELDS = (
     "brand", "tread_model", "size", "season", "load_index", "speed_index", "dot_code",
     "transport_type", "capacity_ah", "cold_crank_amps", "polarity", "case_type",
-    "title", "viscosity", "base_type", "volume",
+    "title", "article", "description", "viscosity", "base_type", "volume",
 )
 
 
@@ -375,6 +401,8 @@ def brand_icon_html(brand, icons_map):
 
 app.jinja_env.globals.update(
     CATEGORY_LABELS=CATEGORY_LABELS, CATEGORY_TYPE=CATEGORY_TYPE, CATEGORY_GROUPS=CATEGORY_GROUPS,
+    PRODUCT_GROUPS=PRODUCT_GROUPS, ALTERNATIVE_TYPES=ALTERNATIVE_TYPES,
+    ALTERNATIVE_TYPE_LABELS=ALTERNATIVE_TYPE_LABELS,
     format_number=format_number, decode_dot_code=decode_dot_code, decode_li_si=decode_li_si,
     COLOR_TAGS=COLOR_TAGS, COLOR_TAG_HEX=COLOR_TAG_HEX, brand_icon_html=brand_icon_html,
     ROLE_LABELS=ROLE_LABELS, CATEGORY_ICONS=CATEGORY_ICONS, GROUP_ICONS=GROUP_ICONS,
@@ -414,9 +442,12 @@ def search_view():
             elif cat_type == "battery":
                 cols = "brand LIKE ? OR transport_type LIKE ?"
                 params = [like, like]
+            elif cat_type == "other":
+                cols = "brand LIKE ? OR title LIKE ? OR article LIKE ? OR description LIKE ?"
+                params = [like, like, like, like]
             else:
-                cols = "brand LIKE ? OR title LIKE ? OR viscosity LIKE ?"
-                params = [like, like, like]
+                cols = "brand LIKE ? OR title LIKE ? OR viscosity LIKE ? OR article LIKE ?"
+                params = [like, like, like, like]
             rows = db.execute(
                 f"SELECT * FROM stock_items WHERE category = ? AND ({cols}) ORDER BY brand LIMIT 50",
                 [category] + params,
@@ -484,6 +515,40 @@ def dashboard():
         sales_count=sales_row["cnt"], sales_revenue=sales_row["revenue"], recent=recent,
         item_label=_item_label, brand_icons=brand_icons,
         total_potential_profit=total_potential_profit, today_profit=today_profit,
+    )
+
+
+@app.route("/products")
+@login_required
+def products_view():
+    selected_group = request.args.get("group", "all")
+    available_groups = {group[0] for group in PRODUCT_GROUPS}
+    if selected_group not in available_groups | {"all"}:
+        selected_group = "all"
+
+    selected_categories = {
+        category
+        for group_key, _label, _icon, categories in PRODUCT_GROUPS
+        if selected_group == "all" or selected_group == group_key
+        for category in categories
+    }
+    db = dbmod.get_db()
+    category_summary = {}
+    for category in selected_categories:
+        row = db.execute(
+            "SELECT COUNT(*) AS positions, COALESCE(SUM(si.quantity), 0) AS quantity, "
+            "SUM(CASE WHEN si.quantity - COALESCE((SELECT SUM(r.quantity) FROM reservations r "
+            "WHERE r.item_id = si.id AND r.status = 'active'), 0) <= "
+            "COALESCE((SELECT t.min_qty FROM thresholds t WHERE t.category = si.category), 3) "
+            "THEN 1 ELSE 0 END) AS low_count "
+            "FROM stock_items si WHERE si.category = ?",
+            (category,),
+        ).fetchone()
+        category_summary[category] = dict(row)
+    return render_template(
+        "products.html",
+        selected_group=selected_group,
+        category_summary=category_summary,
     )
 
 
@@ -561,7 +626,7 @@ def stock_list(category):
         filter_options["size"] = sorted({i["size"] for i in items if i["size"]})
     elif cat_type == "battery":
         filter_options["transport_type"] = sorted({i["transport_type"] for i in items if i["transport_type"]})
-    else:
+    elif cat_type == "oil":
         filter_options["viscosity"] = sorted({i["viscosity"] for i in items if i["viscosity"]})
         filter_options["base_type"] = sorted({i["base_type"] for i in items if i["base_type"]})
 
@@ -572,6 +637,123 @@ def stock_list(category):
         seasons=SEASONS, total_positions=total_positions, total_quantity=total_quantity,
         filter_options=filter_options, brand_icons=_get_brand_icons(db), customer_names=customer_names,
     )
+
+
+def _item_alternatives(db, item_id):
+    return db.execute(
+        "SELECT pa.id AS relation_id, pa.relation_type, pa.notes, si.id AS alternative_id, "
+        "si.category AS alternative_category, si.*, "
+        "si.quantity - COALESCE((SELECT SUM(r.quantity) FROM reservations r "
+        "WHERE r.item_id = si.id AND r.status = 'active'), 0) AS available_quantity "
+        "FROM product_alternatives pa JOIN stock_items si ON si.id = pa.alternative_item_id "
+        "WHERE pa.item_id = ? "
+        "UNION ALL "
+        "SELECT pa.id AS relation_id, pa.relation_type, pa.notes, si.id AS alternative_id, "
+        "si.category AS alternative_category, si.*, "
+        "si.quantity - COALESCE((SELECT SUM(r.quantity) FROM reservations r "
+        "WHERE r.item_id = si.id AND r.status = 'active'), 0) AS available_quantity "
+        "FROM product_alternatives pa JOIN stock_items si ON si.id = pa.item_id "
+        "WHERE pa.alternative_item_id = ? "
+        "ORDER BY relation_type, alternative_category, brand, title",
+        (item_id, item_id),
+    ).fetchall()
+
+
+@app.route("/stock/<category>/<int:item_id>/alternatives", methods=["GET", "POST"])
+@login_required
+def item_alternatives(category, item_id):
+    _category_or_404(category)
+    db = dbmod.get_db()
+    item = db.execute(
+        "SELECT * FROM stock_items WHERE id = ? AND category = ?", (item_id, category)
+    ).fetchone()
+    if item is None:
+        flash("Позицію не знайдено.", "error")
+        return redirect(url_for("stock_list", category=category))
+
+    if request.method == "POST":
+        if session.get("role") != "admin":
+            flash("Додавати або змінювати аналоги може лише адміністратор.", "error")
+            return redirect(url_for("item_alternatives", category=category, item_id=item_id))
+        try:
+            alternative_id = int(request.form.get("alternative_item_id", ""))
+        except ValueError:
+            alternative_id = 0
+        relation_type = (request.form.get("relation_type", "") or "").strip()
+        notes = (request.form.get("notes", "") or "").strip()[:500]
+        alternative = db.execute(
+            "SELECT id FROM stock_items WHERE id = ?", (alternative_id,)
+        ).fetchone()
+        if alternative is None or alternative_id == item_id:
+            flash("Виберіть іншу позицію, яка є на складі.", "error")
+        elif relation_type not in ALTERNATIVE_TYPE_LABELS:
+            flash("Виберіть тип зв’язку зі списку.", "error")
+        else:
+            left_id, right_id = sorted((item_id, alternative_id))
+            db.execute(
+                "INSERT INTO product_alternatives "
+                "(item_id, alternative_item_id, relation_type, notes, created_at) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(item_id, alternative_item_id) DO UPDATE SET "
+                "relation_type = excluded.relation_type, notes = excluded.notes",
+                (left_id, right_id, relation_type, notes, dbmod.now_str()),
+            )
+            db.commit()
+            flash("Аналог збережено для обох товарів.", "success")
+            return redirect(url_for("item_alternatives", category=category, item_id=item_id))
+
+    linked_ids = {
+        row["alternative_id"]
+        for row in _item_alternatives(db, item_id)
+    }
+    candidates = []
+    for candidate in db.execute(
+        "SELECT * FROM stock_items WHERE id != ? ORDER BY category, brand, title, size", (item_id,)
+    ).fetchall():
+        candidate_id = candidate["id"]
+        if candidate_id in linked_ids:
+            continue
+        reserved = db.execute(
+            "SELECT COALESCE(SUM(quantity), 0) FROM reservations "
+            "WHERE item_id = ? AND status = 'active'", (candidate_id,),
+        ).fetchone()[0]
+        candidates.append({
+            "id": candidate_id,
+            "category": candidate["category"],
+            "label": _item_label(candidate["category"], candidate),
+            "available_quantity": candidate["quantity"] - reserved,
+        })
+    return render_template(
+        "alternatives.html",
+        category=category,
+        item=item,
+        alternatives=_item_alternatives(db, item_id),
+        candidates=candidates,
+        item_label=_item_label,
+    )
+
+
+@app.route("/stock/<category>/<int:item_id>/alternatives/<int:relation_id>/delete", methods=["POST"])
+@role_required("admin")
+def item_alternative_delete(category, item_id, relation_id):
+    _category_or_404(category)
+    db = dbmod.get_db()
+    source = db.execute(
+        "SELECT id FROM stock_items WHERE id = ? AND category = ?", (item_id, category)
+    ).fetchone()
+    if source is None:
+        flash("Позицію не знайдено.", "error")
+        return redirect(url_for("stock_list", category=category))
+    deleted = db.execute(
+        "DELETE FROM product_alternatives WHERE id = ? AND (item_id = ? OR alternative_item_id = ?)",
+        (relation_id, item_id, item_id),
+    )
+    if deleted.rowcount:
+        db.commit()
+        flash("Зв’язок аналога видалено.", "success")
+    else:
+        flash("Зв’язок аналога не знайдено.", "error")
+    return redirect(url_for("item_alternatives", category=category, item_id=item_id))
 
 
 @app.route("/stock/<category>/threshold", methods=["POST"])
@@ -607,6 +789,8 @@ def _form_options(category):
             brands=BATTERY_BRANDS, transport_types=BATTERY_TRANSPORT_TYPES,
             polarity_options=BATTERY_POLARITY_OPTIONS, case_types=BATTERY_CASE_TYPES,
         )
+    elif cat_type == "other":
+        opts.update(brands=[], is_other=True)
     else:
         opts.update(
             brands=OIL_BRANDS, viscosity_types=OIL_VISCOSITY_TYPES,
@@ -634,6 +818,11 @@ def _read_item_form(category):
         except ValueError:
             values["capacity_ah"] = 0
             values["cold_crank_amps"] = 0
+    elif cat_type == "other":
+        values["transport_type"] = ""
+        values["viscosity"] = ""
+        values["base_type"] = ""
+        values["volume"] = ""
 
     try:
         price = float((request.form.get("price") or "0").replace(",", "."))
@@ -662,6 +851,11 @@ def item_add(category):
 
     if request.method == "POST":
         values, quantity = _read_item_form(category)
+        if cat_type == "other" and not values["title"]:
+            flash("Вкажіть назву автотовару.", "error")
+            return render_template(
+                "item_form.html", category=category, item=values, is_edit=False, **_form_options(category)
+            )
         if quantity <= 0:
             flash("Кількість має бути більшою за нуль.", "error")
             return render_template("item_form.html", category=category, item=values, is_edit=False, **_form_options(category))
@@ -716,6 +910,11 @@ def item_edit(category, item_id):
         if quantity < reserved:
             flash(f"Кількість не може бути меншою за зарезервовані {reserved} шт.", "error")
             return render_template("item_form.html", category=category, item=item, is_edit=True, **_form_options(category))
+        if cat_type == "other" and not values["title"]:
+            flash("Вкажіть назву автотовару.", "error")
+            return render_template(
+                "item_form.html", category=category, item=values, is_edit=True, **_form_options(category)
+            )
         if cat_type == "tire" and not is_valid_dot_code(values.get("dot_code", "")):
             flash("Некоректний DOT код (3 або 4 цифри).", "error")
             return render_template("item_form.html", category=category, item=item, is_edit=True, **_form_options(category))
@@ -801,7 +1000,12 @@ def _save_sale(db, items, customer_name, received, reservation_id=None):
         )
         if not updated.rowcount:
             raise ValueError("Товар уже продано або зарезервовано в іншій операції.")
-        db.execute("DELETE FROM stock_items WHERE id = ? AND quantity <= 0", (item["id"],))
+        db.execute(
+            "DELETE FROM stock_items WHERE id = ? AND quantity <= 0 "
+            "AND NOT EXISTS (SELECT 1 FROM product_alternatives "
+            "WHERE item_id = stock_items.id OR alternative_item_id = stock_items.id)",
+            (item["id"],),
+        )
         _add_history(
             db, category, "Продаж", dict(item), qty,
             customer=customer_name, customer_id=customer_id, sale_id=sale_id, username=username,
@@ -1346,10 +1550,15 @@ def item_import(category):
                     norm[key] = (v or "").strip()
 
             brand = norm.get("brand", "").strip()
-            if not brand:
+            if not brand and (cat_type != "other" or not norm.get("title", "").strip()):
                 skipped += 1
                 if len(errors) < 20:
-                    errors.append(f"Рядок {i}: не вказано бренд - пропущено.")
+                    errors.append(f"Рядок {i}: вкажіть бренд або назву автотовару - рядок пропущено.")
+                continue
+            if cat_type == "other" and not norm.get("title", "").strip():
+                skipped += 1
+                if len(errors) < 20:
+                    errors.append(f"Рядок {i}: не вказано назву автотовару - пропущено.")
                 continue
 
             try:
@@ -1425,6 +1634,109 @@ def import_template_csv(category):
     cat_type = CATEGORY_TYPE[category]
     header = [h for h, _key in IMPORT_COLUMNS[cat_type]]
     return _csv_response([], header, f"{category}_shablon.csv")
+
+
+@app.route("/stock/<category>/<int:item_id>/alternatives/import.csv", methods=["GET", "POST"])
+@role_required("admin")
+def alternatives_import(category, item_id):
+    _category_or_404(category)
+    db = dbmod.get_db()
+    item = db.execute(
+        "SELECT * FROM stock_items WHERE id = ? AND category = ?", (item_id, category)
+    ).fetchone()
+    if item is None:
+        flash("Позицію не знайдено.", "error")
+        return redirect(url_for("stock_list", category=category))
+
+    if request.method == "POST":
+        file = request.files.get("file")
+        if not file or not file.filename:
+            flash("Виберіть CSV-файл з аналогами.", "error")
+            return redirect(url_for("alternatives_import", category=category, item_id=item_id))
+        rows, error = _parse_import_file(file)
+        if error:
+            flash(error, "error")
+            return redirect(url_for("alternatives_import", category=category, item_id=item_id))
+        if not rows:
+            flash("У файлі не знайдено рядків з аналогами.", "error")
+            return redirect(url_for("alternatives_import", category=category, item_id=item_id))
+
+        imported = 0
+        skipped = 0
+        for line_number, row in enumerate(rows, start=2):
+            normalized = {(key or "").strip().lower(): (value or "").strip() for key, value in row.items()}
+            target_category = normalized.get("категорія", "")
+            target_article = normalized.get("артикул", "")
+            target_brand = normalized.get("бренд", "")
+            target_label = normalized.get("позиція", "")
+            relation_type = normalized.get("тип зв'язку", normalized.get("тип зв’язку", "compatible"))
+            notes = normalized.get("примітка", "")[:500]
+            if target_category not in ALL_CATEGORIES or relation_type not in ALTERNATIVE_TYPE_LABELS:
+                skipped += 1
+                continue
+
+            if target_article:
+                matches = db.execute(
+                    "SELECT * FROM stock_items WHERE category = ? AND article = ? AND id != ?",
+                    (target_category, target_article, item_id),
+                ).fetchall()
+            else:
+                matches = db.execute(
+                    "SELECT * FROM stock_items WHERE category = ? AND brand = ? AND id != ?",
+                    (target_category, target_brand, item_id),
+                ).fetchall()
+                if target_label:
+                    matches = [candidate for candidate in matches
+                               if _item_label(target_category, candidate) == target_label]
+
+            if len(matches) != 1:
+                skipped += 1
+                continue
+            left_id, right_id = sorted((item_id, matches[0]["id"]))
+            db.execute(
+                "INSERT INTO product_alternatives "
+                "(item_id, alternative_item_id, relation_type, notes, created_at) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(item_id, alternative_item_id) DO UPDATE SET "
+                "relation_type = excluded.relation_type, notes = excluded.notes",
+                (left_id, right_id, relation_type, notes, dbmod.now_str()),
+            )
+            imported += 1
+        db.commit()
+        flash(f"Імпорт зв'язків: {imported} додано або оновлено, {skipped} пропущено.", "success")
+        return redirect(url_for("item_alternatives", category=category, item_id=item_id))
+
+    return render_template("alternatives_import.html", category=category, item=item, item_label=_item_label)
+
+
+@app.route("/stock/<category>/<int:item_id>/alternatives/export.csv")
+@login_required
+def alternatives_export(category, item_id):
+    _category_or_404(category)
+    db = dbmod.get_db()
+    item = db.execute(
+        "SELECT * FROM stock_items WHERE id = ? AND category = ?", (item_id, category)
+    ).fetchone()
+    if item is None:
+        flash("Позицію не знайдено.", "error")
+        return redirect(url_for("stock_list", category=category))
+    links = _item_alternatives(db, item_id)
+    rows = [
+        [
+            alternative["alternative_category"],
+            alternative["article"],
+            alternative["brand"],
+            _item_label(alternative["alternative_category"], alternative),
+            alternative["relation_type"],
+            alternative["notes"],
+        ]
+        for alternative in links
+    ]
+    return _csv_response(
+        rows,
+        ["Категорія", "Артикул", "Бренд", "Позиція", "Тип зв'язку", "Примітка"],
+        f"analogy-{item_id}.csv",
+    )
 
 
 # ------------------------------------------------------------------
@@ -1634,10 +1946,14 @@ def export_stock_csv(category):
         header = ["Бренд", "Тип", "Ємність (Ah)", "Пусковий струм (A)", "Полярність", "Корпус", "Мітка"] + cost_header + ["Ціна", "Кількість"]
         rows = [[i["brand"], i["transport_type"], i["capacity_ah"], i["cold_crank_amps"], i["polarity"],
                  i["case_type"], i["color_tag"]] + cost_cols(i) + [i["price"], i["quantity"]] for i in items]
-    else:
+    elif cat_type == "oil":
         header = ["Бренд", "Назва", "В'язкість", "Основа", "Обʼєм", "Мітка"] + cost_header + ["Ціна", "Кількість"]
         rows = [[i["brand"], i["title"], i["viscosity"], i["base_type"], i["volume"],
                  i["color_tag"]] + cost_cols(i) + [i["price"], i["quantity"]] for i in items]
+    else:
+        header = ["Бренд", "Назва", "Артикул", "Опис", "Мітка"] + cost_header + ["Ціна", "Кількість"]
+        rows = [[i["brand"], i["title"], i["article"], i["description"], i["color_tag"]] +
+                cost_cols(i) + [i["price"], i["quantity"]] for i in items]
 
     return _csv_response(rows, header, f"{category}_sklad.csv")
 
@@ -1667,9 +1983,13 @@ def export_history_csv(category):
         header = ["Коли", "Дія", "Хто", "Бренд", "Тип", "Ємність (Ah)", "Пусковий струм (A)"] + cost_header + ["Кількість", "Ціна", "Клієнт"]
         rows = [[r["datetime"], r["operation"], r["username"], r["brand"], r["transport_type"], r["capacity_ah"],
                  r["cold_crank_amps"]] + cost_cols(r) + [r["quantity"], r["price"], r["customer"]] for r in rows_db]
-    else:
+    elif cat_type == "oil":
         header = ["Коли", "Дія", "Хто", "Бренд", "Назва", "В'язкість", "Обʼєм"] + cost_header + ["Кількість", "Ціна", "Клієнт"]
         rows = [[r["datetime"], r["operation"], r["username"], r["brand"], r["title"], r["viscosity"], r["volume"]] +
+                cost_cols(r) + [r["quantity"], r["price"], r["customer"]] for r in rows_db]
+    else:
+        header = ["Коли", "Дія", "Хто", "Бренд", "Назва", "Артикул"] + cost_header + ["Кількість", "Ціна", "Клієнт"]
+        rows = [[r["datetime"], r["operation"], r["username"], r["brand"], r["title"], r["article"]] +
                 cost_cols(r) + [r["quantity"], r["price"], r["customer"]] for r in rows_db]
 
     return _csv_response(rows, header, f"{category}_istoriya.csv")

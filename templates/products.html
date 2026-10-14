@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Товари{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">📦 Товари</h1>
+    <p class="muted">Оберіть групу, щоб переглянути асортимент і залишки.</p>
+  </div>
+  <a class="btn btn-add" href="{{ url_for('cash_view') }}">💳 Перейти до каси</a>
+</div>
+
+<nav class="product-group-tabs" aria-label="Групи товарів">
+  <a class="product-group-tab {{ 'active' if selected_group == 'all' else '' }}" href="{{ url_for('products_view') }}">Усі групи</a>
+  {% for group_key, group_label, group_icon, group_categories in PRODUCT_GROUPS %}
+  <a class="product-group-tab {{ 'active' if selected_group == group_key else '' }}"
+     href="{{ url_for('products_view', group=group_key) }}">{{ group_icon }} {{ group_label }}</a>
+  {% endfor %}
+</nav>
+
+{% for group_key, group_label, group_icon, group_categories in PRODUCT_GROUPS %}
+  {% if selected_group == 'all' or selected_group == group_key %}
+  <section class="product-hub-group">
+    <div class="product-hub-heading">
+      <h2>{{ group_icon }} {{ group_label }}</h2>
+      {% if group_key == 'other' and session.get('role') == 'admin' %}
+      <a class="btn btn-add btn-sm" href="{{ url_for('item_add', category='other') }}">➕ Додати автотовар</a>
+      {% endif %}
+    </div>
+    <div class="product-hub-grid">
+      {% for category in group_categories %}
+      {% set summary = category_summary.get(category, {}) %}
+      <a class="product-hub-card" href="{{ url_for('stock_list', category=category) }}">
+        <span class="product-hub-icon">{{ CATEGORY_ICONS[category] }}</span>
+        <span class="product-hub-copy">
+          <strong>{{ CATEGORY_LABELS[category] }}</strong>
+          <small>{{ summary.get('positions', 0) }} позицій · {{ summary.get('quantity', 0) }} шт. на складі</small>
+        </span>
+        {% if summary.get('low_count', 0) %}<span class="nav-badge">{{ summary['low_count'] }}</span>{% endif %}
+        <span class="product-hub-arrow">→</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+{% endfor %}
+{% endblock %}

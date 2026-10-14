@@ -23,6 +23,7 @@
       <button type="button" class="cash-category" data-group="tires">🛞 Шини</button>
       <button type="button" class="cash-category" data-group="batteries">🔋 Акумулятори</button>
       <button type="button" class="cash-category" data-group="oils">🛢️ Мастила</button>
+      <button type="button" class="cash-category" data-group="other">🧰 Інше</button>
     </nav>
 
     {% if items %}
@@ -31,7 +32,7 @@
       {% for row in items %}
         {% set item = row.item %}
         {% set cat_type = CATEGORY_TYPE[item['category']] %}
-        {% set group = 'tires' if cat_type == 'tire' else 'batteries' if cat_type == 'battery' else 'oils' %}
+        {% set group = 'tires' if cat_type == 'tire' else 'batteries' if cat_type == 'battery' else 'oils' if cat_type == 'oil' else 'other' %}
         <article class="cash-product"
           data-id="{{ item['id'] }}"
           data-group="{{ group }}"
@@ -39,7 +40,7 @@
           data-label="{{ item_label(item['category'], item) }}"
           data-price="{{ item['price'] }}"
           data-available="{{ row.available }}"
-          data-search="{{ CATEGORY_LABELS[item['category']] }} {{ item_label(item['category'], item) }} {{ item['brand'] }} {{ item['size'] }} {{ item['tread_model'] }} {{ item['season'] }} {{ item['load_index'] }} {{ item['speed_index'] }} {{ item['dot_code'] }} {{ item['transport_type'] }} {{ item['capacity_ah'] }} {{ item['cold_crank_amps'] }} {{ item['polarity'] }} {{ item['case_type'] }} {{ item['title'] }} {{ item['viscosity'] }} {{ item['base_type'] }} {{ item['volume'] }}">
+          data-search="{{ CATEGORY_LABELS[item['category']] }} {{ item_label(item['category'], item) }} {{ item['brand'] }} {{ item['size'] }} {{ item['tread_model'] }} {{ item['season'] }} {{ item['load_index'] }} {{ item['speed_index'] }} {{ item['dot_code'] }} {{ item['transport_type'] }} {{ item['capacity_ah'] }} {{ item['cold_crank_amps'] }} {{ item['polarity'] }} {{ item['case_type'] }} {{ item['title'] }} {{ item['article'] }} {{ item['description'] }} {{ item['viscosity'] }} {{ item['base_type'] }} {{ item['volume'] }}">
           <div class="cash-product-top">
             <span class="cash-product-category">{{ CATEGORY_LABELS[item['category']] }}</span>
             <span class="cash-product-stock {{ 'qty-low' if row.available <= 2 else '' }}">Залишок: {{ row.available }}</span>
@@ -49,14 +50,19 @@
             <div class="cash-product-spec">{{ item['season'] }}{% if item['load_index'] %} · {{ item['load_index'] }}{% if item['speed_index'] %}/{{ item['speed_index'] }}{% endif %}{% endif %}{% if item['dot_code'] %} · DOT {{ item['dot_code'] }}{% endif %}</div>
           {% elif cat_type == 'battery' %}
             <div class="cash-product-spec">{{ format_number(item['capacity_ah']) }} Ah · {{ format_number(item['cold_crank_amps']) }} A{% if item['polarity'] %} · {{ item['polarity'] }}{% endif %}</div>
+          {% elif cat_type == 'other' %}
+            <div class="cash-product-spec">{% if item['article'] %}{{ item['article'] }}{% endif %}{% if item['article'] and item['description'] %} · {% endif %}{{ item['description'] }}</div>
           {% else %}
             <div class="cash-product-spec">{{ item['base_type'] }}{% if item['base_type'] and item['volume'] %} · {% endif %}{{ item['volume'] }}</div>
           {% endif %}
           <div class="cash-product-bottom">
             <strong>{{ "%.2f"|format(item['price']) }} ₴</strong>
-            <button type="button" class="btn btn-add cash-add" {% if not row.available %}disabled{% endif %}>
-              {% if row.available %}+ Додати{% else %}Немає{% endif %}
-            </button>
+            <div class="cash-product-actions">
+              <a class="cash-alternatives-link" href="{{ url_for('item_alternatives', category=item['category'], item_id=item['id']) }}" title="Переглянути перевірені аналоги">🔗 Аналоги</a>
+              <button type="button" class="btn btn-add cash-add" {% if not row.available %}disabled{% endif %}>
+                {% if row.available %}+ Додати{% else %}Немає{% endif %}
+              </button>
+            </div>
           </div>
           <input type="checkbox" class="cash-check" name="sell_{{ item['id'] }}" hidden>
           <input type="hidden" name="qty_{{ item['id'] }}" class="cash-qty" value="1">

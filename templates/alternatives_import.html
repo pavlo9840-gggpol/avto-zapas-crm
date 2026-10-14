@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Імпорт аналогів{% endblock %}
+{% block content %}
+<h1 class="page-title">📥 Імпорт аналогів</h1>
+<p class="muted alternatives-source">Для товару: {{ item_label(category, item) }}</p>
+<div class="panel alternatives-import-help">
+  <h2>Формат CSV</h2>
+  <p>Завантажте список аналогів у форматі CSV з колонками:</p>
+  <code>Категорія;Артикул;Бренд;Позиція;Тип зв'язку;Примітка</code>
+  <p class="muted">Типи зв'язку: <code>exact</code>, <code>compatible</code>, <code>check</code>. Для пошуку товару вкажіть унікальний артикул або точні категорію, бренд і назву позиції. Невідомі чи неоднозначні товари буде пропущено.</p>
+  <a class="btn btn-ghost btn-sm" href="{{ url_for('alternatives_export', category=category, item_id=item['id']) }}">⬇️ Завантажити приклад CSV</a>
+</div>
+<form method="post" enctype="multipart/form-data" class="item-form alternatives-upload">
+  <label>Файл CSV</label>
+  <input type="file" name="file" accept=".csv" required>
+  <div class="form-actions">
+    <a class="btn btn-ghost" href="{{ url_for('item_alternatives', category=category, item_id=item['id']) }}">Скасувати</a>
+    <button class="btn btn-add" type="submit">📥 Імпортувати зв'язки</button>
+  </div>
+</form>
+{% endblock %}

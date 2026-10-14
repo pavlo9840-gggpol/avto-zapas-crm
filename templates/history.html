@@ -25,6 +25,7 @@
       {% if cat_type == 'tire' %}<th class="sortable" data-sort="text">Розмір</th><th class="sortable" data-sort="text">Сезон</th><th>DOT</th>{% endif %}
       {% if cat_type == 'battery' %}<th class="sortable" data-sort="text">Тип</th><th>Параметри</th>{% endif %}
       {% if cat_type == 'oil' %}<th class="sortable" data-sort="text">В'язкість</th><th>Обʼєм</th>{% endif %}
+      {% if cat_type == 'other' %}<th>Артикул</th><th>Назва</th>{% endif %}
       {% if session.get('role') == 'admin' %}<th class="sortable" data-sort="number">Собівартість</th><th class="sortable" data-sort="number">Прибуток</th>{% endif %}
       <th class="sortable" data-sort="number">К-сть</th><th class="sortable" data-sort="number">Ціна</th>
       <th class="sortable" data-sort="text">Клієнт</th><th></th>
@@ -45,6 +46,9 @@
       {% endif %}
       {% if cat_type == 'oil' %}
         <td>{{ r['viscosity'] }}</td><td>{{ r['volume'] }}</td>
+      {% endif %}
+      {% if cat_type == 'other' %}
+        <td>{{ r['article'] }}</td><td>{{ r['title'] }}</td>
       {% endif %}
       {% if session.get('role') == 'admin' %}
         <td class="nowrap">{{ "%.0f"|format(r['cost_price']) }} ₴</td>

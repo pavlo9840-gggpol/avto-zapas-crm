@@ -20,10 +20,12 @@ CATEGORY_OIL_CAR = "oil_car"
 CATEGORY_OIL_MOTO = "oil_moto"
 CATEGORY_OIL_TRANS = "oil_trans"
 CATEGORY_OIL_SPECIAL = "oil_special"
+CATEGORY_OTHER = "other"
 
 ALL_CATEGORIES = (
     CATEGORY_CAR, CATEGORY_MOTO, CATEGORY_BATTERY_CAR, CATEGORY_BATTERY_MOTO,
     CATEGORY_OIL_CAR, CATEGORY_OIL_MOTO, CATEGORY_OIL_TRANS, CATEGORY_OIL_SPECIAL,
+    CATEGORY_OTHER,
 )
 
 CATEGORY_LABELS = {
@@ -35,6 +37,7 @@ CATEGORY_LABELS = {
     CATEGORY_OIL_MOTO: "Мото мастила (2T/4T)",
     CATEGORY_OIL_TRANS: "Трансмісійні масла",
     CATEGORY_OIL_SPECIAL: "Масла для генераторів та спецтехніки",
+    CATEGORY_OTHER: "Інші автотовари",
 }
 
 # 'tire' / 'battery' / 'oil' - визначає, які поля показувати у формах і таблицях
@@ -47,6 +50,7 @@ CATEGORY_TYPE = {
     CATEGORY_OIL_MOTO: "oil",
     CATEGORY_OIL_TRANS: "oil",
     CATEGORY_OIL_SPECIAL: "oil",
+    CATEGORY_OTHER: "other",
 }
 
 CATEGORY_GROUPS = [
@@ -56,6 +60,7 @@ CATEGORY_GROUPS = [
         (CATEGORY_OIL_CAR, "Автомасла"), (CATEGORY_OIL_MOTO, "Мотомасла"),
         (CATEGORY_OIL_TRANS, "Трансмісійні"), (CATEGORY_OIL_SPECIAL, "Для генераторів"),
     ]),
+    ("Інше", [(CATEGORY_OTHER, "Інші автотовари")]),
 ]
 
 CATEGORY_ICONS = {
@@ -63,8 +68,23 @@ CATEGORY_ICONS = {
     CATEGORY_BATTERY_CAR: "🔋", CATEGORY_BATTERY_MOTO: "🔋",
     CATEGORY_OIL_CAR: "🛢️", CATEGORY_OIL_MOTO: "⛽",
     CATEGORY_OIL_TRANS: "⚙️", CATEGORY_OIL_SPECIAL: "🔧",
+    CATEGORY_OTHER: "🧰",
 }
-GROUP_ICONS = {"Шини": "🛞", "Акумулятори": "🔌", "Мастила": "🧴"}
+GROUP_ICONS = {"Шини": "🛞", "Акумулятори": "🔌", "Мастила": "🧴", "Інше": "🧰"}
+
+PRODUCT_GROUPS = [
+    ("tires", "Шини", "🛞", (CATEGORY_CAR, CATEGORY_MOTO)),
+    ("batteries", "Акумулятори", "🔋", (CATEGORY_BATTERY_CAR, CATEGORY_BATTERY_MOTO)),
+    ("oils", "Мастила", "🛢️", (CATEGORY_OIL_CAR, CATEGORY_OIL_MOTO, CATEGORY_OIL_TRANS, CATEGORY_OIL_SPECIAL)),
+    ("other", "Інші автотовари", "🧰", (CATEGORY_OTHER,)),
+]
+
+ALTERNATIVE_TYPES = (
+    ("exact", "Точна заміна"),
+    ("compatible", "Сумісний аналог"),
+    ("check", "Можлива альтернатива — перевірити"),
+)
+ALTERNATIVE_TYPE_LABELS = dict(ALTERNATIVE_TYPES)
 
 # ---------------------------------------------------------------
 # Шини

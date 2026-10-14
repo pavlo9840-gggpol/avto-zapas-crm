@@ -2,6 +2,13 @@
 {% block title %}{{ CATEGORY_LABELS[category] }}{% endblock %}
 {% block content %}
 {% set cat_type = CATEGORY_TYPE[category] %}
+{% set nav_group = namespace(selected='other', categories=[]) %}
+{% for group_key, group_label, group_icon, group_categories in PRODUCT_GROUPS %}
+  {% if category in group_categories %}
+    {% set nav_group.selected = group_key %}
+    {% set nav_group.categories = group_categories %}
+  {% endif %}
+{% endfor %}
 <div class="page-head">
   <div>
     <h1 class="page-title">{{ CATEGORY_LABELS[category] }}</h1>
@@ -20,6 +27,19 @@
   </div>
 </div>
 
+<nav class="product-group-tabs" aria-label="Групи товарів">
+  {% for group_key, group_label, group_icon, group_categories in PRODUCT_GROUPS %}
+  <a class="product-group-tab {{ 'active' if nav_group.selected == group_key else '' }}"
+     href="{{ url_for('products_view', group=group_key) }}">{{ group_icon }} {{ group_label }}</a>
+  {% endfor %}
+</nav>
+<nav class="product-category-tabs" aria-label="Категорії товарів">
+  {% for subcategory in nav_group.categories %}
+  <a class="{{ 'active' if subcategory == category else '' }}"
+     href="{{ url_for('stock_list', category=subcategory) }}">{{ CATEGORY_ICONS[subcategory] }} {{ CATEGORY_LABELS[subcategory] }}</a>
+  {% endfor %}
+</nav>
+
 <div class="toolbar">
   <input type="text" id="search-box" class="search-input" placeholder="🔍  Пошук по таблиці (бренд, модель...)" value="{{ request.args.get('q', '') }}">
 
@@ -37,7 +57,7 @@
       <option value="">Тип: всі</option>
       {% for t in filter_options['transport_type'] %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
     </select>
-  {% else %}
+  {% elif cat_type == 'oil' %}
     <select id="filter-viscosity" class="filter-select" data-attr="viscosity">
       <option value="">В'язкість: всі</option>
       {% for v in filter_options['viscosity'] %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
@@ -76,8 +96,10 @@
         <th class="col-lisi">LI/SI</th><th class="col-dot">DOT</th>
       {% elif cat_type == 'battery' %}
         <th class="sortable" data-sort="text">Тип</th><th class="sortable" data-sort="number">Ємність / Пусковий струм</th><th>Полярність</th><th>Корпус</th>
-      {% else %}
+      {% elif cat_type == 'oil' %}
         <th class="sortable" data-sort="text">Назва</th><th class="sortable" data-sort="text">В'язкість</th><th>Основа</th><th>Обʼєм</th>
+      {% else %}
+        <th class="sortable" data-sort="text">Артикул</th><th class="sortable" data-sort="text">Назва / опис</th>
       {% endif %}
       {% if session.get('role') == 'admin' %}
       <th class="col-price sortable" data-sort="number">Собівартість</th>
@@ -97,6 +119,7 @@
         {% if cat_type == 'tire' %}data-season="{{ item['season'] }}" data-size="{{ item['size'] }}"{% endif %}
         {% if cat_type == 'battery' %}data-transport_type="{{ item['transport_type'] }}"{% endif %}
         {% if cat_type == 'oil' %}data-viscosity="{{ item['viscosity'] }}" data-base_type="{{ item['base_type'] }}"{% endif %}
+        {% if cat_type == 'other' %}data-article="{{ item['article'] }}"{% endif %}
         data-qty="{{ item['available_quantity'] }}">
       <td class="col-check"><input type="checkbox" name="sell_{{ item['id'] }}" class="sell-check" {% if not item['available_quantity'] %}disabled{% endif %}></td>
       <td>{{ brand_icon_html(item['brand'], brand_icons) }} {{ item['brand'] }}</td>
@@ -117,11 +140,14 @@
         <td class="nowrap">{{ format_number(item['capacity_ah']) }} Ah / {{ format_number(item['cold_crank_amps']) }} A</td>
         <td>{{ item['polarity'] }}</td>
         <td>{{ item['case_type'] }}</td>
-      {% else %}
+      {% elif cat_type == 'oil' %}
         <td>{{ item['title'] }}</td>
         <td>{{ item['viscosity'] }}</td>
         <td>{{ item['base_type'] }}</td>
         <td>{{ item['volume'] }}</td>
+      {% else %}
+        <td>{{ item['article'] }}</td>
+        <td>{{ item['title'] }}{% if item['description'] %}<div class="muted">{{ item['description'] }}</div>{% endif %}</td>
       {% endif %}
       {% if session.get('role') == 'admin' %}
       <td class="nowrap">{{ "%.0f"|format(item['cost_price']) }} ₴</td>
@@ -131,6 +157,7 @@
       <td class="{{ 'qty-low' if low else '' }}">{{ item['quantity'] }} / {{ item['available_quantity'] }}</td>
       <td class="col-qty"><input type="number" name="qty_{{ item['id'] }}" min="1" max="{{ item['available_quantity'] }}" value="1" class="qty-input" disabled></td>
       <td class="col-actions">
+        <a href="{{ url_for('item_alternatives', category=category, item_id=item['id']) }}" title="Аналоги та заміни">🔗</a>
         {% if session.get('role') == 'admin' %}
         <a href="{{ url_for('item_edit', category=category, item_id=item['id']) }}" title="Редагувати">✏️</a>
         <form method="post" action="{{ url_for('item_delete', category=category, item_id=item['id']) }}" class="inline-form" onsubmit="return confirm('Видалити цю позицію зі складу?');">

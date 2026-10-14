@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS stock_items (
     polarity TEXT DEFAULT '',
     case_type TEXT DEFAULT '',
     title TEXT DEFAULT '',
+    article TEXT DEFAULT '',
+    description TEXT DEFAULT '',
     viscosity TEXT DEFAULT '',
     base_type TEXT DEFAULT '',
     volume TEXT DEFAULT '',
@@ -88,6 +90,19 @@ CREATE TABLE IF NOT EXISTS customers (
     phone TEXT DEFAULT '',
     notes TEXT DEFAULT '',
     created_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS product_alternatives (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    alternative_item_id INTEGER NOT NULL,
+    relation_type TEXT NOT NULL,
+    notes TEXT DEFAULT '',
+    created_at TEXT NOT NULL,
+    UNIQUE(item_id, alternative_item_id),
+    CHECK(item_id < alternative_item_id),
+    FOREIGN KEY(item_id) REFERENCES stock_items(id) ON DELETE CASCADE,
+    FOREIGN KEY(alternative_item_id) REFERENCES stock_items(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -145,6 +160,8 @@ CREATE TABLE IF NOT EXISTS history (
     polarity TEXT DEFAULT '',
     case_type TEXT DEFAULT '',
     title TEXT DEFAULT '',
+    article TEXT DEFAULT '',
+    description TEXT DEFAULT '',
     viscosity TEXT DEFAULT '',
     base_type TEXT DEFAULT '',
     volume TEXT DEFAULT '',
@@ -171,6 +188,10 @@ def init_db(app):
         db.execute("ALTER TABLE stock_items ADD COLUMN color_tag TEXT DEFAULT ''")
     if "cost_price" not in existing_cols:
         db.execute("ALTER TABLE stock_items ADD COLUMN cost_price REAL DEFAULT 0")
+    if "article" not in existing_cols:
+        db.execute("ALTER TABLE stock_items ADD COLUMN article TEXT DEFAULT ''")
+    if "description" not in existing_cols:
+        db.execute("ALTER TABLE stock_items ADD COLUMN description TEXT DEFAULT ''")
 
     brand_icon_cols = {row[1] for row in db.execute("PRAGMA table_info(brand_icons)")}
     if "icon_file" not in brand_icon_cols:
@@ -185,6 +206,10 @@ def init_db(app):
         db.execute("ALTER TABLE history ADD COLUMN sale_id TEXT DEFAULT ''")
     if "username" not in history_cols:
         db.execute("ALTER TABLE history ADD COLUMN username TEXT DEFAULT ''")
+    if "article" not in history_cols:
+        db.execute("ALTER TABLE history ADD COLUMN article TEXT DEFAULT ''")
+    if "description" not in history_cols:
+        db.execute("ALTER TABLE history ADD COLUMN description TEXT DEFAULT ''")
 
     row = db.execute("SELECT value FROM settings WHERE key = 'password_hash'").fetchone()
     if row is None:

@@ -16,7 +16,8 @@
       <td>{{ label }}</td>
       <td class="muted">
         {% if key == 'quantity' %}обов'язково, ціле число > 0
-        {% elif key == 'brand' %}обов'язково
+        {% elif key == 'brand' %}{% if category == 'other' %}необов'язково{% else %}обов'язково{% endif %}
+        {% elif key == 'title' and category == 'other' %}обов'язково
         {% elif key == 'price' %}число, кома або крапка
         {% elif key == 'color_tag' %}необов'язково (red/orange/yellow/green/blue/purple/gray)
         {% else %}необов'язково
